@@ -35,6 +35,7 @@ dependencies = [
     "anthropic>=0.40.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.1.0",
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]
@@ -53,6 +54,9 @@ dev = [
 Homepage = "https://github.com/lmagee3/ground-truth"
 Repository = "https://github.com/lmagee3/ground-truth"
 Issues = "https://github.com/lmagee3/ground-truth/issues"
+
+[tool.setuptools.packages.find]
+include = ["groundtruth*"]
 
 [tool.black]
 line-length = 100
