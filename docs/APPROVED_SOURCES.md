@@ -16,6 +16,9 @@ Ground Truth only cites sources from this list. Any domain not listed here will 
 | fbi.gov | FBI Crime Data Explorer | Crime statistics, threat assessments |
 | treasury.gov | US Treasury | Sanctions lists (OFAC), economic data |
 | defense.gov | Department of Defense | Official statements, posture reports |
+| fas.org | Federation of American Scientists | Weapons systems, nuclear arsenals, intelligence policy |
+| dni.gov | Director of National Intelligence | Threat assessments, intelligence community reports |
+| cbo.gov | Congressional Budget Office | Defense spending analysis, budget projections |
 
 ## International Institutions
 

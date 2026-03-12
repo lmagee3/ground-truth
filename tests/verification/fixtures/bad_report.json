@@ -1,0 +1,27 @@
+{
+  "query": "Iran nuclear program history",
+  "date": "2024-09-01",
+  "depth": "comprehensive",
+  "sources": [
+    {
+      "url": "https://en.wikipedia.org/wiki/Iran_and_weapons_of_mass_destruction",
+      "date": "2024-08-01",
+      "claim": "Iran's nuclear history overview"
+    },
+    {
+      "url": "https://www.nytimes.com/2024/01/15/world/middleeast/iran-nuclear.html",
+      "date": "2024-01-15",
+      "claim": "Recent IAEA inspections"
+    },
+    {
+      "url": "https://archives.gov/research/foreign-policy/iran",
+      "date": "1989-03-10",
+      "claim": "US-Iran diplomatic cables, pre-revolution era"
+    },
+    {
+      "url": "https://thisurldoesnotexistatall-groundtruth-test.gov/broken-link",
+      "date": "2023-06-01",
+      "claim": "Dead link — approved domain but broken URL"
+    }
+  ]
+}

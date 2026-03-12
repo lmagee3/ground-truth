@@ -1,0 +1,27 @@
+{
+  "query": "South China Sea tensions",
+  "date": "2024-06-15",
+  "depth": "standard",
+  "sources": [
+    {
+      "url": "https://data.worldbank.org/indicator/MS.MIL.XPND.GD.ZS?locations=CN",
+      "date": "2024-01-01",
+      "claim": "China military expenditure as % of GDP"
+    },
+    {
+      "url": "https://www.cia.gov/the-world-factbook/countries/china/",
+      "date": "2024-03-01",
+      "claim": "China government type and military branches"
+    },
+    {
+      "url": "https://acleddata.com/data-export-tool/",
+      "date": "2024-05-20",
+      "claim": "Conflict events in South China Sea, 2020-2024"
+    },
+    {
+      "url": "https://archives.nato.int/allied-command-operations",
+      "date": "2023-11-15",
+      "claim": "NATO maritime posture assessments"
+    }
+  ]
+}
