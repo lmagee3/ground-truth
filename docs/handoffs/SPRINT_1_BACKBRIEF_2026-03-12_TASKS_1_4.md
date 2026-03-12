@@ -96,7 +96,7 @@ Existing tests kept passing:
 
 Result:
 ```bash
-45 passed in 1.06s
+45 passed
 ```
 
 ---
@@ -111,6 +111,7 @@ API smoke check:
 - `/v1/country/US` returns HTTP 200
 - Response contains populated World Bank indicator series (all 8 categories)
 - Response contains real Factbook profile fields for United States
+- `/v1/country/CN` returns HTTP 200 with real Factbook + World Bank data
 
 ---
 
@@ -150,4 +151,3 @@ API smoke check:
 3. Integrate verification pipeline output (`verification_status`) into context responses.
 4. Expand ISO mapping and Factbook field normalization for full-country coverage.
 5. Add ingestion refresh command(s) under `scripts/` for scheduled updates.
-
