@@ -91,6 +91,80 @@ async def health():
     }
 
 
+@app.get("/v1/events/{iso_code}.geojson", summary="Events as GeoJSON FeatureCollection")
+async def get_events_geojson(
+    iso_code: str,
+    days: int = Query(30, ge=1, le=365, description="Number of days back to fetch events"),
+) -> dict[str, Any]:
+    """Return GDELT + ACLED events as a GeoJSON FeatureCollection.
+
+    Compatible with World Monitor map layer format. Each feature includes
+    geometry (Point) and properties (event_type, date, description, source, actors).
+    Coordinates default to [0, 0] for GDELT events without geo data.
+    """
+    iso = iso_code.upper().replace(".GEOJSON", "")
+    features: list[dict[str, Any]] = []
+
+    if not _is_test_mode():
+        try:
+            gdelt_events = await gdelt.fetch_events(query=iso, country_code=iso, maxrecords=50)
+            for ev in gdelt_events:
+                features.append({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            float(ev.get("longitude") or 0),
+                            float(ev.get("latitude") or 0),
+                        ],
+                    },
+                    "properties": {
+                        "event_type": ev.get("event_type", "article"),
+                        "date": str(ev.get("date", "")),
+                        "description": ev.get("description", ""),
+                        "source": "GDELT",
+                        "actors": [],
+                        "source_url": ev.get("source_url", ""),
+                    },
+                })
+        except Exception:  # noqa: BLE001
+            pass
+
+        if acled.configured:
+            try:
+                from datetime import timedelta
+                start = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+                end = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                acled_events = await acled.fetch_events(start_date=start, end_date=end)
+                for ev in acled_events:
+                    lat = ev.get("latitude") or 0
+                    lon = ev.get("longitude") or 0
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                        "properties": {
+                            "event_type": ev.get("event_type", "unknown"),
+                            "date": str(ev.get("date", "")),
+                            "description": ev.get("description", ""),
+                            "source": "ACLED",
+                            "actors": ev.get("actors", []),
+                            "source_url": ev.get("source_url", ""),
+                        },
+                    })
+            except Exception:  # noqa: BLE001
+                pass
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "metadata": {
+            "iso_code": iso,
+            "days": days,
+            "total": len(features),
+        },
+    }
+
+
 @app.get("/v1/country/{iso_code}")
 async def get_country(iso_code: str, start_year: int = 2000, end_year: int = 2026):
     iso = iso_code.upper()
@@ -282,9 +356,12 @@ async def _build_context_response(
     end_year: int = 2026,
     provider: str | None = None,
 ) -> dict[str, Any]:
-    iso = _to_iso(query)
+    # Extract ALL countries from the query (e.g., "US-Iran Tensions" → ["IR", "US"])
+    all_countries = _extract_countries(query)
+    iso = _to_iso(query)  # primary country for the response envelope
     country_name = query
 
+    # Fetch data for primary country
     try:
         country_data = await get_country(iso, start_year=start_year, end_year=end_year)
         country_name = country_data["country"]["name"]
@@ -295,16 +372,54 @@ async def _build_context_response(
             "worldbank": {},
         }
 
+    # For bilateral/multi-country queries, fetch secondary countries and merge
+    secondary_data: list[dict[str, Any]] = []
+    secondary_isos = [c for c in all_countries if c != iso]
+    for sec_iso in secondary_isos[:3]:  # cap at 3 secondary countries
+        try:
+            sec_data = await get_country(sec_iso, start_year=start_year, end_year=end_year)
+            secondary_data.append(sec_data)
+        except HTTPException:
+            pass
+
+    # Merge secondary factbook/worldbank into country_data for richer synthesis
+    if secondary_data:
+        merged_factbook = dict(country_data.get("factbook", {}))
+        merged_worldbank = dict(country_data.get("worldbank", {}))
+
+        for sec in secondary_data:
+            sec_name = sec.get("country", {}).get("name", "Unknown")
+            sec_fb = sec.get("factbook", {})
+            if sec_fb:
+                for key, val in sec_fb.items():
+                    merged_factbook[f"{sec_name}_{key}"] = val
+
+            sec_wb = sec.get("worldbank", {})
+            if sec_wb:
+                for key, val in sec_wb.items():
+                    merged_worldbank[f"{sec_name}_{key}"] = val
+
+        country_data["factbook"] = merged_factbook
+        country_data["worldbank"] = merged_worldbank
+        # Add secondary country names for the synthesis prompt
+        country_data["secondary_countries"] = [
+            s.get("country", {}).get("name", "Unknown") for s in secondary_data
+        ]
+
+    # Track total records across all countries for source status
+    wb_records = sum(len(v) for v in country_data.get("worldbank", {}).values())
+    fb_records = len(country_data.get("factbook", {}))
+
     sources_available: dict[str, dict[str, Any]] = {
         "worldbank": {
-            "status": "used" if country_data.get("worldbank") else "skipped",
-            "records": sum(len(v) for v in country_data.get("worldbank", {}).values()),
-            "reason": "no world bank data" if not country_data.get("worldbank") else None,
+            "status": "used" if wb_records else "skipped",
+            "records": wb_records,
+            "reason": "no world bank data" if not wb_records else None,
         },
         "cia_factbook": {
-            "status": "used" if country_data.get("factbook") else "skipped",
-            "records": len(country_data.get("factbook", {})),
-            "reason": "no factbook data" if not country_data.get("factbook") else None,
+            "status": "used" if fb_records else "skipped",
+            "records": fb_records,
+            "reason": "no factbook data" if not fb_records else None,
         },
         "gdelt": {"status": "skipped", "records": 0, "reason": "not requested"},
         "acled": {"status": "skipped", "records": 0, "reason": "not requested"},
@@ -370,16 +485,41 @@ async def _build_context_response(
             "reason": "test mode",
         }
 
-    sipri_data = sipri.get_country_military_data(iso, start_year=start_year, end_year=end_year)
+    # Fetch SIPRI/FAS for ALL countries, merge results
+    sipri_data: dict[str, Any] = sipri.get_country_military_data(
+        iso, start_year=start_year, end_year=end_year
+    )
+    fas_data: dict[str, Any] | None = fas.get_country_data(iso)
+
+    for sec_iso in secondary_isos[:3]:
+        sec_sipri = sipri.get_country_military_data(
+            sec_iso, start_year=start_year, end_year=end_year
+        )
+        if sec_sipri.get("military_expenditure"):
+            sipri_data.setdefault("military_expenditure", []).extend(
+                sec_sipri["military_expenditure"]
+            )
+        if sec_sipri.get("arms_transfers"):
+            sipri_data.setdefault("arms_transfers", []).extend(sec_sipri["arms_transfers"])
+
+        sec_fas = fas.get_country_data(sec_iso)
+        if sec_fas and not fas_data:
+            fas_data = sec_fas
+        elif sec_fas and fas_data:
+            # Merge: store as list of country nuclear profiles
+            if not isinstance(fas_data, list):
+                fas_data = [fas_data]
+            fas_data.append(sec_fas)
+
     sipri_records = len(sipri_data.get("military_expenditure", [])) + len(
         sipri_data.get("arms_transfers", [])
     )
     if sipri_records:
         sources_available["sipri"] = {"status": "used", "records": sipri_records, "reason": None}
 
-    fas_data = fas.get_country_data(iso)
     if fas_data:
-        sources_available["fas"] = {"status": "used", "records": 1, "reason": None}
+        fas_count = len(fas_data) if isinstance(fas_data, list) else 1
+        sources_available["fas"] = {"status": "used", "records": fas_count, "reason": None}
 
     military_data = {
         "sipri": sipri_data,
@@ -453,7 +593,77 @@ def _report_to_markdown(report: dict[str, Any]) -> str:
     )
 
 
+QUERY_COUNTRY_MAP: dict[str, str] = {
+    "iran": "IR",
+    "iraq": "IQ",
+    "israel": "IL",
+    "palestine": "PS",
+    "gaza": "PS",
+    "ukraine": "UA",
+    "russia": "RU",
+    "china": "CN",
+    "taiwan": "TW",
+    "north korea": "KP",
+    "south korea": "KR",
+    "syria": "SY",
+    "yemen": "YE",
+    "libya": "LY",
+    "afghanistan": "AF",
+    "pakistan": "PK",
+    "india": "IN",
+    "georgia": "GE",
+    "armenia": "AM",
+    "azerbaijan": "AZ",
+    "us": "US",
+    "usa": "US",
+    "united states": "US",
+    "uk": "GB",
+    "united kingdom": "GB",
+    "france": "FR",
+    "germany": "DE",
+    "japan": "JP",
+    "saudi arabia": "SA",
+    "turkey": "TR",
+    "nato": "US",
+    "eu": "DE",
+}
+
+
+def _extract_countries(query: str) -> list[str]:
+    """Extract all country ISO codes from a complex query string."""
+    q = query.strip().lower()
+    found: list[str] = []
+
+    # Check for 2-letter ISO codes in the query (e.g., "US" in "US-Iran")
+    for word in query.split():
+        clean = word.strip(" -–—,.!?()[]").upper()
+        if len(clean) == 2 and clean.isalpha():
+            if clean in ("US", "UK", "IR", "UA", "RU", "CN", "IN", "IL", "PS",
+                         "IQ", "SY", "KP", "KR", "JP", "DE", "FR", "GB", "SA",
+                         "TR", "TW", "YE", "LY", "AF", "PK", "GE", "AM", "AZ"):
+                if clean not in found:
+                    found.append(clean)
+
+    # Check for country names in the query (longer names first to avoid partial matches)
+    sorted_names = sorted(QUERY_COUNTRY_MAP.keys(), key=len, reverse=True)
+    for name in sorted_names:
+        if name in q:
+            iso = QUERY_COUNTRY_MAP[name]
+            if iso not in found:
+                found.append(iso)
+
+    return found
+
+
 def _to_iso(query: str) -> str:
+    """Get the primary country ISO code from a query."""
+    countries = _extract_countries(query)
+    if countries:
+        # Return the first non-US country if available (for "US-Iran", we want Iran data)
+        # But if only US, return US
+        non_us = [c for c in countries if c != "US"]
+        return non_us[0] if non_us else countries[0]
+
     q = query.strip()
     if len(q) == 2 and q.isalpha():
         return q.upper()

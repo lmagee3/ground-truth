@@ -16,16 +16,42 @@ except ImportError:  # pragma: no cover
     anthropic = None
 
 
-PROMPT_TEMPLATE = """You are Ground Truth, a geopolitical context engine. Your role is to generate
-intelligence briefings that explain HOW and WHY geopolitical situations developed.
+PROMPT_TEMPLATE = """You are Ground Truth, a geopolitical context engine that produces intelligence
+briefings explaining HOW and WHY geopolitical situations developed. You write like a senior
+intelligence analyst producing a briefing for a policy maker — clear, deep, authoritative.
 
-RULES:
-1. Use ONLY the data provided below. Do not hallucinate facts.
-2. Present MULTIPLE interpretive frameworks — do not pick sides.
-3. Every factual claim must reference its source from the provided data.
-4. Use military briefing style: clear, direct, no editorial language.
-5. Structure: Background → Key Events → Economic Context → Military Context →
-   Multiple Perspectives → Current Assessment
+CRITICAL RULES:
+1. TRACE HISTORICAL ROOTS TO THEIR DEEPEST ORIGIN. Do NOT start at the most recent crisis.
+   - For US-Iran: begin with the 1953 CIA/MI6-backed coup (Operation Ajax) that overthrew Mosaddegh,
+     then cover the Shah era, 1979 revolution, hostage crisis, Iran-Iraq war, nuclear program, JCPOA.
+   - For Israel-Palestine: begin with the Balfour Declaration (1917), British Mandate, 1948 war.
+   - For Ukraine-Russia: begin with Crimean history, Soviet era, 1991 independence, Orange Revolution.
+   - For ANY topic: identify the earliest causal event and build forward chronologically.
+2. Use the provided data as your PRIMARY evidence, but you may reference well-established
+   historical facts (pre-2000) that provide essential context even if not in the dataset.
+   Clearly mark any historical context not from the provided data as "[Historical context]".
+3. Present MULTIPLE interpretive frameworks — do not pick sides. Include at minimum:
+   realist/security, liberal/institutional, and regional/local perspectives.
+4. Every claim from the provided data must cite its source (World Bank, CIA Factbook, GDELT, etc.).
+5. Military briefing style: clear, direct, no editorial language, no hedging.
+6. The timeline MUST span the full historical arc — include pre-2000 events that are essential
+   to understanding the current situation. Aim for 8-15 timeline entries for "standard" depth.
+7. For bilateral queries (e.g., "US-Iran", "India-Pakistan"), analyze BOTH countries' data
+   and how their relationship evolved over time.
+
+DEPTH GUIDANCE (ALL depths produce substantive analysis — there is no "shallow" mode):
+- "brief": Concise but STILL historically grounded. 5-8 timeline events going back to the
+  root cause. 3-5 paragraphs of background. 2+ perspectives. Never skip historical origins.
+- "standard": Full deep-dive analysis. 10-18 timeline events spanning the ENTIRE historical arc.
+  Detailed economic/military context. 3+ perspectives with evidence. 4-8 paragraphs of background
+  covering every major turning point from origin to present day.
+- "comprehensive": Maximum depth. 18-30 timeline events. Granular economic trends year-by-year.
+  4+ perspectives with detailed evidence. Sub-regional dynamics, treaty/agreement history,
+  leadership transitions, covert operations, proxy conflicts. 6-10 paragraphs of background.
+
+IMPORTANT: Regardless of depth level, ALWAYS trace the full historical arc. A "brief" on Iran
+still starts at 1953, it just covers fewer details. NEVER produce a timeline with fewer than
+5 entries. NEVER start a background section later than the root cause event.
 
 QUERY: {query}
 DEPTH: {depth}
@@ -46,18 +72,18 @@ AVAILABLE DATA:
 --- MILITARY DATA (SIPRI/FAS) ---
 {military_data}
 
-Generate JSON with this schema:
+Generate a JSON object with this exact schema (no markdown, no code fences, ONLY valid JSON):
 {{
-  "title": "...",
-  "summary": "...",
-  "background": "...",
-  "timeline": [{{"year": 2020, "event": "...", "source": "..."}}],
-  "economic_context": "...",
-  "military_context": "...",
-  "perspectives": [{{"framework": "...", "argument": "...", "evidence": "..."}}],
-  "current_assessment": "...",
-  "sources_cited": ["..."],
-  "confidence_notes": "..."
+  "title": "descriptive title for the briefing",
+  "summary": "2-4 sentence executive summary",
+  "background": "3-6 paragraphs tracing the FULL historical arc from earliest relevant event to present",
+  "timeline": [{{"year": 1953, "event": "description of key event", "source": "CIA Factbook or Historical context"}}],
+  "economic_context": "economic analysis using World Bank data and historical trends",
+  "military_context": "military balance, arms flows, defense posture using SIPRI/FAS data",
+  "perspectives": [{{"framework": "Realist/Security", "argument": "the argument", "evidence": "supporting evidence"}}],
+  "current_assessment": "current situation assessment with forward-looking analysis",
+  "sources_cited": ["World Bank", "CIA Factbook", "SIPRI", "etc."],
+  "confidence_notes": "data gaps, caveats, reliability assessment"
 }}
 """
 
@@ -90,6 +116,7 @@ class ContextEngine:
         sources_available = sources_available or {}
 
         prompt = self._build_prompt(query, depth, country_data, events, military_data)
+        self._current_depth = depth  # Store for token limit scaling
 
         selected_provider = (provider or self.provider).lower()
         llm_output: str | None = None
@@ -180,12 +207,23 @@ class ContextEngine:
             military_data=json.dumps(military_data, default=str),
         )
 
+    def _max_tokens_for_depth(self) -> int:
+        """Scale output tokens based on requested depth. All depths get generous limits
+        because even 'brief' produces historically grounded analysis."""
+        depth = getattr(self, "_current_depth", "standard")
+        if depth == "brief":
+            return 4096
+        elif depth == "comprehensive":
+            return 16384
+        return 8192  # standard — enough for full historical deep dive
+
     async def _call_ollama(self, prompt: str) -> str:
+        max_tokens = self._max_tokens_for_depth()
         payload = {
             "model": self.ollama_model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.3, "num_predict": 4096},
+            "options": {"temperature": 0.3, "num_predict": max_tokens},
         }
         async with httpx.AsyncClient(timeout=self.ollama_timeout) as client:
             response = await client.post(f"{self.ollama_base_url}/api/generate", json=payload)
@@ -199,10 +237,11 @@ class ContextEngine:
         if anthropic is None:
             raise RuntimeError("anthropic package is not installed")
 
+        max_tokens = self._max_tokens_for_depth()
         client = anthropic.AsyncAnthropic(api_key=self.anthropic_api_key)
         response = await client.messages.create(
             model=self.anthropic_model,
-            max_tokens=4096,
+            max_tokens=max_tokens,
             temperature=0.3,
             messages=[{"role": "user", "content": prompt}],
         )
