@@ -1,0 +1,36 @@
+country,year,exports_tiv,imports_tiv
+United States,2019,10752,3152
+United States,2020,9372,2831
+United States,2021,12435,2140
+United States,2022,14500,1820
+United States,2023,13800,2100
+Russia,2019,6400,187
+Russia,2020,5720,143
+Russia,2021,3600,120
+Russia,2022,2800,210
+Russia,2023,2500,190
+China,2019,1472,3982
+China,2020,1240,3150
+China,2021,1870,2860
+China,2022,2130,2410
+China,2023,2300,2100
+Ukraine,2019,49,87
+Ukraine,2020,32,121
+Ukraine,2021,55,220
+Ukraine,2022,12,7800
+Ukraine,2023,8,11200
+United Kingdom,2019,1200,780
+United Kingdom,2020,1400,620
+United Kingdom,2021,1180,910
+United Kingdom,2022,1350,850
+United Kingdom,2023,1500,1100
+France,2019,2100,430
+France,2020,1800,380
+France,2021,2400,290
+France,2022,2700,310
+France,2023,3100,280
+India,2019,62,6800
+India,2020,48,5200
+India,2021,110,4900
+India,2022,95,5100
+India,2023,120,4800

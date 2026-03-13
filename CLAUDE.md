@@ -93,7 +93,7 @@ ground-truth/
 |--------|--------|-------------|-------|
 | Sprint 1 | ✅ Complete | World Bank + CIA Factbook ingestion, DB models, API scaffolding, Source Validator | 60 passed |
 | Sprint 2 | ✅ Complete — QA PASSED | GDELT + ACLED ingestion, SIPRI + FAS military data, AI synthesis engine, full API wiring, DB persistence | 60 passed |
-| Sprint 3 | 🔜 Next | Auth/rate limiting, Bias Detector, Fact Checker, pipeline integration, frontend | — |
+| Sprint 3 | 🚧 In Progress | React 18 + TS frontend, embeddable widget, GeoJSON endpoint, World Monitor interop | — |
 
 ## Key Decisions
 | Date | Decision | Rationale |
@@ -108,14 +108,17 @@ ground-truth/
 | 2026-03-12 | Graceful source degradation is first-class | Any missing credentials or failed source never blocks report generation. |
 | 2026-03-12 | AI provider switchable via env var | `SYNTHESIS_PROVIDER=ollama` or `anthropic` — no code change needed. |
 | 2026-03-13 | `/v1/country/{iso}` missing `sources_available` | Minor gap — all synthesis endpoints include it; country endpoint is raw data. Fix in Sprint 3. |
+| 2026-03-13 | React 18 + TS frontend with WM interop | Embeddable widget + GeoJSON endpoint for World Monitor map layer compatibility. Sonnet builds. |
+| 2026-03-13 | No Next.js — pure Vite SPA | Overkill for our needs. Static deploy to Vercel. API stays separate on Railway. |
+| 2026-03-13 | Dark theme matching WM aesthetic | Deep navy + emerald green. Military briefing typography. Information density > decoration. |
 
 ## Build Sequence (Agent Assignments)
 1. ✅ **Sonnet / Codex** — World Bank + CIA Factbook ingestion, DB models, Source Validator (Sprint 1)
 2. ✅ **Codex** — GDELT + ACLED ingestion, SIPRI + FAS military data, AI synthesis engine, full API wiring (Sprint 2)
 3. ✅ **Antigravity** — Source Validator built + QA pass on Sprint 2 (Sprint 1–2)
-4. 🔜 **Sprint 3** — Auth middleware + rate limiting
+4. 🚧 **Sonnet** — React 18 + TS frontend, embeddable widget, GeoJSON endpoint, WM interop (Sprint 3)
 5. 🔜 **Antigravity Sprint 3** — Wire VerificationPipeline into API, build Bias Detector + Fact Checker
-6. 🔜 **Sprint 3** — Minimal React frontend
+6. 🔜 **Sprint 4** — Auth middleware, rate limiting, user accounts, mobile
 
 # currentDate
 Today's date is 2026-03-13.
