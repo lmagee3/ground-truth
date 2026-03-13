@@ -88,6 +88,13 @@ ground-truth/
 - **Enterprise:** $199-499/mo — SLA, bulk queries, custom templates
 - **Federal:** $500-2K/mo — on-prem option, SDVOSB pricing
 
+## Sprint Status
+| Sprint | Status | What Shipped | Tests |
+|--------|--------|-------------|-------|
+| Sprint 1 | ✅ Complete | World Bank + CIA Factbook ingestion, DB models, API scaffolding, Source Validator | 60 passed |
+| Sprint 2 | ✅ Complete — QA PASSED | GDELT + ACLED ingestion, SIPRI + FAS military data, AI synthesis engine, full API wiring, DB persistence | 60 passed |
+| Sprint 3 | 🔜 Next | Auth/rate limiting, Bias Detector, Fact Checker, pipeline integration, frontend | — |
+
 ## Key Decisions
 | Date | Decision | Rationale |
 |------|----------|-----------|
@@ -98,18 +105,20 @@ ground-truth/
 | 2026-03-11 | Complementary to World Monitor | WM = radar (what). GT = briefing (why). Partnership > competition. |
 | 2026-03-12 | Ollama for free tier, Claude API for paid only | Zero cost to run open source version. Tokens only burned for paying customers. |
 | 2026-03-12 | Added military/defense data layer | SIPRI, FAS, OFAC, treaty archives. Differentiator for federal tier. |
+| 2026-03-12 | Graceful source degradation is first-class | Any missing credentials or failed source never blocks report generation. |
+| 2026-03-12 | AI provider switchable via env var | `SYNTHESIS_PROVIDER=ollama` or `anthropic` — no code change needed. |
+| 2026-03-13 | `/v1/country/{iso}` missing `sources_available` | Minor gap — all synthesis endpoints include it; country endpoint is raw data. Fix in Sprint 3. |
 
 ## Build Sequence (Agent Assignments)
-1. **Sonnet** — Wire World Bank + CIA Factbook ingestion (zero cost, proves pipeline)
-2. **Codex** — PostgreSQL models + Alembic migrations
-3. **Sonnet** — Add GDELT + ACLED ingestion
-4. **Sonnet** — Synthesis layer (Ollama local dev, Claude API production hook)
-5. **Antigravity** — Verification pipeline (parallel once reports flow)
-6. **Sonnet** — Auth middleware + rate limiting
-7. **Sonnet** — Minimal React frontend (last)
+1. ✅ **Sonnet / Codex** — World Bank + CIA Factbook ingestion, DB models, Source Validator (Sprint 1)
+2. ✅ **Codex** — GDELT + ACLED ingestion, SIPRI + FAS military data, AI synthesis engine, full API wiring (Sprint 2)
+3. ✅ **Antigravity** — Source Validator built + QA pass on Sprint 2 (Sprint 1–2)
+4. 🔜 **Sprint 3** — Auth middleware + rate limiting
+5. 🔜 **Antigravity Sprint 3** — Wire VerificationPipeline into API, build Bias Detector + Fact Checker
+6. 🔜 **Sprint 3** — Minimal React frontend
 
 # currentDate
-Today's date is 2026-03-12.
+Today's date is 2026-03-13.
 
 ## Rules
 1. Primary sources only — no exceptions
