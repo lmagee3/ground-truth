@@ -23,6 +23,8 @@ def test_context_endpoint_exists():
     data = response.json()
     assert "query" in data
     assert "sources" in data
+    assert "report" in data
+    assert "sources_available" in data
 
 
 def test_timeline_endpoint_exists():
@@ -40,6 +42,8 @@ def test_briefing_endpoint_exists():
     assert response.status_code == 200
     data = response.json()
     assert "topic" in data
+    assert "report" in data
+    assert "sources_available" in data
 
 
 def test_compare_endpoint_exists():
@@ -49,3 +53,5 @@ def test_compare_endpoint_exists():
     data = response.json()
     assert "event_a" in data
     assert "event_b" in data
+    assert "comparison" in data
+    assert "sources_available" in data

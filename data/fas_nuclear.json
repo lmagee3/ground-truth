@@ -1,0 +1,74 @@
+{
+  "US": {
+    "total_warheads": 5044,
+    "deployed": 1670,
+    "reserve": 1938,
+    "retired_awaiting_dismantlement": 1436,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "RU": {
+    "total_warheads": 5580,
+    "deployed": 1710,
+    "reserve": 2670,
+    "retired_awaiting_dismantlement": 1200,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "GB": {
+    "total_warheads": 225,
+    "deployed": 120,
+    "reserve": 105,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "FR": {
+    "total_warheads": 290,
+    "deployed": 280,
+    "reserve": 10,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "CN": {
+    "total_warheads": 500,
+    "deployed": 24,
+    "reserve": 476,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "IN": {
+    "total_warheads": 172,
+    "deployed": 0,
+    "reserve": 172,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "PK": {
+    "total_warheads": 170,
+    "deployed": 0,
+    "reserve": 170,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "IL": {
+    "total_warheads": 90,
+    "deployed": 0,
+    "reserve": 90,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  },
+  "KP": {
+    "total_warheads": 50,
+    "deployed": 0,
+    "reserve": 50,
+    "retired_awaiting_dismantlement": 0,
+    "last_updated": "2024",
+    "source_url": "https://fas.org/issues/nuclear-weapons/status-world-nuclear-forces/"
+  }
+}
