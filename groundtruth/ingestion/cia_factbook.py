@@ -8,7 +8,9 @@ from pathlib import Path
 
 import httpx
 
-FACTBOOK_URL = "https://raw.githubusercontent.com/iancoleman/cia_world_factbook_api/master/data/factbook.json"
+FACTBOOK_URL = (
+    "https://raw.githubusercontent.com/iancoleman/cia_world_factbook_api/master/data/factbook.json"
+)
 
 COUNTRY_NAME_TO_ISO: dict[str, str] = {
     "united states": "US",
@@ -44,7 +46,9 @@ class CIAFactbookIngestor:
         http_client: httpx.AsyncClient | None = None,
         source_url: str = FACTBOOK_URL,
     ) -> None:
-        self.cache_path = Path(cache_path or Path(__file__).parent.parent.parent / ".cache" / "cia_factbook.json")
+        self.cache_path = Path(
+            cache_path or Path(__file__).parent.parent.parent / ".cache" / "cia_factbook.json"
+        )
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         self._http_client = http_client
         self.source_url = source_url
@@ -61,7 +65,9 @@ class CIAFactbookIngestor:
         self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
         return payload
 
-    async def get_country_profile(self, iso_code: str | None = None, country_name: str | None = None) -> CountryProfile:
+    async def get_country_profile(
+        self, iso_code: str | None = None, country_name: str | None = None
+    ) -> CountryProfile:
         if not iso_code and not country_name:
             raise ValueError("Provide iso_code or country_name")
 
@@ -70,7 +76,13 @@ class CIAFactbookIngestor:
         if raw_country is None:
             raise ValueError(f"Country not found: iso={iso_code} name={country_name}")
 
-        name = raw_country.get("name") or raw_country.get("country_name") or country_name or iso_code or "unknown"
+        name = (
+            raw_country.get("name")
+            or raw_country.get("country_name")
+            or country_name
+            or iso_code
+            or "unknown"
+        )
         normalized_iso = self.normalize_country_to_iso(name, fallback=iso_code)
 
         return CountryProfile(
@@ -119,7 +131,9 @@ class CIAFactbookIngestor:
         guess = "".join(part[0] for part in key.split()[:2]).upper()
         return guess or "XX"
 
-    def _find_country(self, dataset: dict, iso_code: str | None, country_name: str | None) -> dict | None:
+    def _find_country(
+        self, dataset: dict, iso_code: str | None, country_name: str | None
+    ) -> dict | None:
         countries = self._collect_countries(dataset)
         iso = iso_code.upper() if iso_code else None
         target_name = country_name.strip().lower() if country_name else None

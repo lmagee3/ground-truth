@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
 from groundtruth.models import Base
 
 config = context.config
@@ -16,7 +16,9 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True)
+    context.configure(
+        url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True
+    )
 
     with context.begin_transaction():
         context.run_migrations()

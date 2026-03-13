@@ -24,9 +24,7 @@ log = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Path to approved sources doc — relative to repo root
 # ---------------------------------------------------------------------------
-_APPROVED_SOURCES_DOC = (
-    Path(__file__).parent.parent.parent / "docs" / "APPROVED_SOURCES.md"
-)
+_APPROVED_SOURCES_DOC = Path(__file__).parent.parent.parent / "docs" / "APPROVED_SOURCES.md"
 
 # Hardcoded fallback in case the doc can't be read
 _FALLBACK_APPROVED_DOMAINS: frozenset[str] = frozenset(
@@ -219,9 +217,7 @@ class SourceValidator:
         Returns a :class:`ValidationResult` with per-source details.
         """
         raw_sources: list = report.get("sources", [])
-        context_date: str = report.get(
-            "date", datetime.utcnow().strftime("%Y-%m-%d")
-        )
+        context_date: str = report.get("date", datetime.utcnow().strftime("%Y-%m-%d"))
 
         details: list[SourceValidation] = []
 
@@ -310,9 +306,7 @@ class SourceValidator:
         async with self._get_client() as client:
             return await self._query_wayback(client, url)
 
-    def check_date_freshness(
-        self, source_date: str, report_context_date: str
-    ) -> str:
+    def check_date_freshness(self, source_date: str, report_context_date: str) -> str:
         """Assess how fresh a source is relative to the context period.
 
         Args:
@@ -360,9 +354,7 @@ class SourceValidator:
         # Domain not approved → immediate fail, skip liveness check
         if not is_approved:
             freshness = (
-                self.check_date_freshness(source_date, context_date)
-                if source_date
-                else "unknown"
+                self.check_date_freshness(source_date, context_date) if source_date else "unknown"
             )
             return SourceValidation(
                 url=url,
@@ -388,9 +380,7 @@ class SourceValidator:
 
         # Date freshness
         freshness = (
-            self.check_date_freshness(source_date, context_date)
-            if source_date
-            else "unknown"
+            self.check_date_freshness(source_date, context_date) if source_date else "unknown"
         )
         if freshness == "stale":
             notes_parts.append(

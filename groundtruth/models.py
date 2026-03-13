@@ -7,7 +7,17 @@ import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -34,7 +44,9 @@ class Country(Base):
 class Indicator(Base):
     __tablename__ = "indicators"
     __table_args__ = (
-        UniqueConstraint("country_code", "indicator_id", "year", "source", name="uq_indicator_point"),
+        UniqueConstraint(
+            "country_code", "indicator_id", "year", "source", name="uq_indicator_point"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

@@ -35,8 +35,20 @@ async def test_date_range_and_cache(tmp_path):
     payload = [
         {"page": 1},
         [
-            {"country": {"value": "China"}, "countryiso3code": "CHN", "indicator": {"value": "GDP"}, "date": "2024", "value": 1.0},
-            {"country": {"value": "China"}, "countryiso3code": "CHN", "indicator": {"value": "GDP"}, "date": "2023", "value": 2.0},
+            {
+                "country": {"value": "China"},
+                "countryiso3code": "CHN",
+                "indicator": {"value": "GDP"},
+                "date": "2024",
+                "value": 1.0,
+            },
+            {
+                "country": {"value": "China"},
+                "countryiso3code": "CHN",
+                "indicator": {"value": "GDP"},
+                "date": "2023",
+                "value": 2.0,
+            },
         ],
     ]
     calls = {"count": 0}

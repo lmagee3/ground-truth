@@ -36,7 +36,9 @@ async def test_parse_known_country_profile(tmp_path):
 
 @pytest.mark.asyncio
 async def test_military_fields_extracted(tmp_path):
-    payload = {"countries": [{"name": "Iran", "military_and_security": {"military_branches": "Artesh"}}]}
+    payload = {
+        "countries": [{"name": "Iran", "military_and_security": {"military_branches": "Artesh"}}]
+    }
 
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=payload)

@@ -43,7 +43,9 @@ class WorldBankIngestor:
         http_client: httpx.AsyncClient | None = None,
         request_interval_seconds: float = 1.0,
     ) -> None:
-        self.cache_dir = Path(cache_dir or Path(__file__).parent.parent.parent / ".cache" / "worldbank")
+        self.cache_dir = Path(
+            cache_dir or Path(__file__).parent.parent.parent / ".cache" / "worldbank"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._http_client = http_client
         self._request_interval = request_interval_seconds
@@ -104,7 +106,9 @@ class WorldBankIngestor:
         self, country_code: str, indicator_id: str, payload: list[dict] | dict
     ) -> list[IndicatorPoint]:
         if not isinstance(payload, list) or len(payload) < 2 or not isinstance(payload[1], list):
-            raise ValueError(f"Unexpected World Bank response format for {country_code} {indicator_id}")
+            raise ValueError(
+                f"Unexpected World Bank response format for {country_code} {indicator_id}"
+            )
 
         rows = payload[1]
         points: list[IndicatorPoint] = []
@@ -125,7 +129,9 @@ class WorldBankIngestor:
                     country_code=row.get("countryiso3code") or country_code,
                     country_name=(row.get("country") or {}).get("value") or country_code,
                     indicator_id=indicator_id,
-                    indicator_name=((row.get("indicator") or {}).get("value") or INDICATOR_IDS[indicator_id]),
+                    indicator_name=(
+                        (row.get("indicator") or {}).get("value") or INDICATOR_IDS[indicator_id]
+                    ),
                     year=year,
                     value=value,
                 )
@@ -134,7 +140,9 @@ class WorldBankIngestor:
         points.sort(key=lambda p: p.year)
         return points
 
-    def _cache_path(self, country_code: str, indicator_id: str, start_year: int, end_year: int) -> Path:
+    def _cache_path(
+        self, country_code: str, indicator_id: str, start_year: int, end_year: int
+    ) -> Path:
         name = f"{country_code}_{indicator_id}_{start_year}_{end_year}.json".replace("/", "_")
         return self.cache_dir / name
 

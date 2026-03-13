@@ -1,10 +1,16 @@
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from groundtruth.models import ApprovedSource, Base, Country, Indicator, parse_approved_sources_markdown
+from groundtruth.models import (
+    ApprovedSource,
+    Base,
+    Country,
+    Indicator,
+    parse_approved_sources_markdown,
+)
 
 
 def test_model_creation_and_relationship():
@@ -12,7 +18,9 @@ def test_model_creation_and_relationship():
     Base.metadata.create_all(engine)
 
     with Session(engine) as session:
-        country = Country(iso_code="US", name="United States", region="North America", factbook_data={})
+        country = Country(
+            iso_code="US", name="United States", region="North America", factbook_data={}
+        )
         session.add(country)
         session.flush()
 

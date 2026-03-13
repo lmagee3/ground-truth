@@ -5,9 +5,9 @@ Revises:
 Create Date: 2026-03-12
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "20260312_0001"
 down_revision = None
@@ -37,14 +37,18 @@ def upgrade() -> None:
     op.create_table(
         "indicators",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("country_code", sa.String(length=2), sa.ForeignKey("countries.iso_code"), nullable=False),
+        sa.Column(
+            "country_code", sa.String(length=2), sa.ForeignKey("countries.iso_code"), nullable=False
+        ),
         sa.Column("indicator_id", sa.String(length=64), nullable=False),
         sa.Column("indicator_name", sa.String(length=255), nullable=False),
         sa.Column("year", sa.Integer(), nullable=False),
         sa.Column("value", sa.Float(), nullable=True),
         sa.Column("source", sa.String(length=64), nullable=False),
         sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint("country_code", "indicator_id", "year", "source", name="uq_indicator_point"),
+        sa.UniqueConstraint(
+            "country_code", "indicator_id", "year", "source", name="uq_indicator_point"
+        ),
     )
 
     op.create_table(

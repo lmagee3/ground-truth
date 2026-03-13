@@ -95,7 +95,9 @@ async def get_country(iso_code: str, start_year: int = 2000, end_year: int = 202
 
     indicators_payload: dict[str, list[dict]] = {}
     try:
-        indicators = await worldbank.fetch_country_indicators(iso, start_year=start_year, end_year=end_year)
+        indicators = await worldbank.fetch_country_indicators(
+            iso, start_year=start_year, end_year=end_year
+        )
         indicators_payload = {
             indicator: [point.__dict__ for point in points if point.value is not None]
             for indicator, points in indicators.items()
