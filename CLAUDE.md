@@ -93,7 +93,9 @@ ground-truth/
 |--------|--------|-------------|-------|
 | Sprint 1 | ✅ Complete | World Bank + CIA Factbook ingestion, DB models, API scaffolding, Source Validator | 60 passed |
 | Sprint 2 | ✅ Complete — QA PASSED | GDELT + ACLED ingestion, SIPRI + FAS military data, AI synthesis engine, full API wiring, DB persistence | 60 passed |
-| Sprint 3 | 🚧 In Progress | React 18 + TS frontend, embeddable widget, GeoJSON endpoint, World Monitor interop | — |
+| Sprint 3 | ✅ Complete | React 18 + TS frontend, GeoJSON endpoint, World Monitor interop, SearchBar, BriefingPanel, CompareView, SourceStatus | — |
+| Sprint 4 | ✅ Complete | Ollama fallback model chain, UI reskin to mindmap aesthetic, AI query parser (query_parser.py), data summarization pipeline, prompt rewrite | — |
+| Sprint 5 | 🚧 In Progress | SSE streaming progress, two-pass Standard depth, depth tier gating, frontend polish | — |
 
 ## Key Decisions
 | Date | Decision | Rationale |
@@ -111,17 +113,34 @@ ground-truth/
 | 2026-03-13 | React 18 + TS frontend with WM interop | Embeddable widget + GeoJSON endpoint for World Monitor map layer compatibility. Sonnet builds. |
 | 2026-03-13 | No Next.js — pure Vite SPA | Overkill for our needs. Static deploy to Vercel. API stays separate on Railway. |
 | 2026-03-13 | Dark theme matching WM aesthetic | Deep navy + emerald green. Military briefing typography. Information density > decoration. |
+| 2026-03-14 | qwen3:14b as primary Ollama model | Best balance of quality vs speed from Lawrence's local inventory (9.3GB). Fallback: llama3.1, qwen3:8b, gemma. |
+| 2026-03-14 | Data summarization pipeline | Raw JSON (50K+ tokens) compressed to trend summaries (~2-3K tokens) before LLM. Fixed "model describes data instead of geopolitics" bug. |
+| 2026-03-14 | Two-pass generation for Standard depth | Local models can't do 8K structured JSON in one shot. Split into historical narrative (4K) + analysis layer (4K), then merge. |
+| 2026-03-14 | Comprehensive = Pro tier (cloud API) | Local Ollama can't handle 16K structured output. Comprehensive depth uses Claude API — covered by $49/mo Pro subscription revenue. |
+| 2026-03-14 | SSE streaming for progress | Replace spinner with real-time stage-by-stage progress bar. Users see exactly what's happening during 30-90s synthesis. |
+| 2026-03-14 | GT is NOT redundant with World Monitor | WM = radar (WHAT is happening). GT = briefing (WHY it's happening). Complementary, not competitive. WM has 2M users with no deep context — GT provides that context. Integration play, not competition. |
+| 2026-03-14 | MIT license advantage over WM's AGPL | WM can't embed our engine without going open source. We CAN build embeddable widget they'd want to link to. Leverage. |
 
 ## Build Sequence (Agent Assignments)
 1. ✅ **Sonnet / Codex** — World Bank + CIA Factbook ingestion, DB models, Source Validator (Sprint 1)
 2. ✅ **Codex** — GDELT + ACLED ingestion, SIPRI + FAS military data, AI synthesis engine, full API wiring (Sprint 2)
 3. ✅ **Antigravity** — Source Validator built + QA pass on Sprint 2 (Sprint 1–2)
-4. 🚧 **Sonnet** — React 18 + TS frontend, embeddable widget, GeoJSON endpoint, WM interop (Sprint 3)
-5. 🔜 **Antigravity Sprint 3** — Wire VerificationPipeline into API, build Bias Detector + Fact Checker
-6. 🔜 **Sprint 4** — Auth middleware, rate limiting, user accounts, mobile
+4. ✅ **Sonnet** — React 18 + TS frontend, embeddable widget, GeoJSON endpoint, WM interop (Sprint 3)
+5. ✅ **Codex** — Ollama fallback chain, UI reskin, AI query parser (Sprint 4)
+6. ✅ **Opus** — Data summarization pipeline, prompt rewrite, multi-country merging (Sprint 4)
+7. 🚧 **Sonnet** — SSE streaming progress, two-pass Standard depth, frontend polish (Sprint 5)
+8. 🔜 **Antigravity Sprint 3+** — Wire VerificationPipeline into API, build Bias Detector + Fact Checker
+9. 🔜 **Sprint 6** — Auth middleware, rate limiting, user accounts, deployment (Vercel + Railway)
+
+## Competitive Positioning
+- **World Monitor** = radar screen (WHAT is happening now). Real-time event feed, macro analytics, equity overlays. 2M+ users, AGPL license, Pro tier on waitlist at $0 (no revenue yet). Created by Elie Habib (Anghami CTO).
+- **Ground Truth** = analyst's desk (WHY it's happening). Historical context, primary source citations, multi-perspective frameworks. MIT license.
+- **Integration play**: WM users click a hotspot → GT provides the deep briefing. WM's 2M users = our distribution channel. No marketing spend needed.
+- **Differentiation**: GT's military data layer (SIPRI arms transfers, FAS nuclear notebooks, OFAC sanctions) serves defense/policy audience that WM doesn't touch. That's the federal $500-2K/mo tier.
+- **WM's equity/macro features** are financial data overlays for traders. GT's evidence pipeline + historical depth + citation rigor serves a different use case entirely.
 
 # currentDate
-Today's date is 2026-03-13.
+Today's date is 2026-03-14.
 
 ## Rules
 1. Primary sources only — no exceptions

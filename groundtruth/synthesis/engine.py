@@ -75,6 +75,63 @@ Return ONLY valid JSON (no markdown, no code fences):
 }}
 """
 
+PASS1_TEMPLATE = """You are Ground Truth, a senior intelligence analyst.
+
+TASK: Write the HISTORICAL NARRATIVE for a briefing on: "{query}"
+
+Focus on: title, executive summary, deep historical background (trace to ROOT CAUSE),
+timeline (10-18 events spanning full arc), economic context, military context.
+
+Do NOT write perspectives or current assessment — those come in pass 2.
+
+CIA FACTBOOK PROFILE:
+{factbook_data}
+
+ECONOMIC INDICATORS (World Bank):
+{worldbank_data}
+
+RECENT EVENTS (GDELT):
+{gdelt_events}
+
+CONFLICT DATA (ACLED):
+{acled_events}
+
+MILITARY / ARMS DATA (SIPRI/FAS):
+{military_data}
+
+Return ONLY valid JSON:
+{{
+  "title": "...",
+  "summary": "2-4 sentence executive summary",
+  "background": "Multi-paragraph historical narrative from root cause to present",
+  "timeline": [{{"year": YYYY, "event": "...", "source": "..."}}],
+  "economic_context": "...",
+  "military_context": "...",
+  "sources_cited": ["..."]
+}}
+"""
+
+PASS2_TEMPLATE = """You are Ground Truth, a senior intelligence analyst.
+
+TASK: Write the ANALYSIS LAYER for a briefing on: "{query}"
+
+You already have the historical narrative (title: "{title}", {timeline_count} timeline events).
+Now provide interpretive frameworks, current assessment, and confidence analysis.
+
+Context from Pass 1:
+- Summary: {summary}
+- Economic: {economic_context}
+- Military: {military_context}
+
+Return ONLY valid JSON:
+{{
+  "perspectives": [{{"framework": "...", "argument": "...", "evidence": "..."}}],
+  "current_assessment": "Forward-looking analysis of current situation",
+  "sources_cited": ["..."],
+  "confidence_notes": "Data gaps and reliability caveats"
+}}
+"""
+
 
 @dataclass
 class ContextEngine:
@@ -137,16 +194,43 @@ class ContextEngine:
 
         llm_output: str | None = None
         llm_error: str | None = None
+        if selected_provider != "anthropic" and depth in {"standard", "comprehensive"}:
+            try:
+                parsed = await self._two_pass_generate(
+                    query=query,
+                    depth=depth,
+                    country_data=country_data,
+                    events=events,
+                    military_data=military_data,
+                    sources_available=sources_available,
+                )
+                parsed["sources_available"] = sources_available
+                parsed.setdefault("confidence_notes", "")
+                parsed["confidence_notes"] = self._merge_confidence_notes(
+                    parsed["confidence_notes"], sources_available, None
+                )
+                return parsed
+            except Exception as exc:  # noqa: BLE001
+                llm_error = f"two_pass_error: {type(exc).__name__}: {exc}"
+
         if selected_provider == "anthropic":
             try:
                 llm_output = await self._call_anthropic(prompt)
             except Exception as exc:  # noqa: BLE001
-                llm_error = f"anthropic_error: {type(exc).__name__}: {exc}"
+                llm_error = (
+                    f"{llm_error} | anthropic_error: {type(exc).__name__}: {exc}"
+                    if llm_error
+                    else f"anthropic_error: {type(exc).__name__}: {exc}"
+                )
         else:
             try:
                 llm_output = await self._call_ollama(prompt)
             except Exception as exc:  # noqa: BLE001
-                llm_error = f"ollama_error: {type(exc).__name__}: {exc}"
+                llm_error = (
+                    f"{llm_error} | ollama_error: {type(exc).__name__}: {exc}"
+                    if llm_error
+                    else f"ollama_error: {type(exc).__name__}: {exc}"
+                )
 
         if llm_output:
             parsed = self._parse_llm_json(llm_output)
@@ -167,6 +251,67 @@ class ContextEngine:
             sources_available=sources_available,
             llm_error=llm_error,
         )
+
+    async def _two_pass_generate(
+        self,
+        query: str,
+        depth: str,
+        country_data: dict[str, Any],
+        events: dict[str, list[dict[str, Any]]],
+        military_data: dict[str, Any],
+        sources_available: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Split larger local generations into two coherent passes."""
+        _ = depth
+        pass1_prompt = PASS1_TEMPLATE.format(
+            query=query,
+            factbook_data=self._summarize_factbook(country_data.get("factbook", {})),
+            worldbank_data=self._summarize_worldbank(country_data.get("worldbank", {})),
+            gdelt_events=self._summarize_events(events.get("gdelt", []), "GDELT", max_items=10),
+            acled_events=self._summarize_events(events.get("acled", []), "ACLED", max_items=10),
+            military_data=self._summarize_military(military_data),
+        )
+
+        previous_depth = getattr(self, "_current_depth", "standard")
+        try:
+            self._current_depth = "brief"
+            pass1_raw = await self._call_ollama(pass1_prompt)
+            pass1_result = self._parse_llm_json(pass1_raw) or {}
+
+            pass2_prompt = PASS2_TEMPLATE.format(
+                query=query,
+                title=pass1_result.get("title", query),
+                summary=pass1_result.get("summary", ""),
+                timeline_count=len(pass1_result.get("timeline", [])),
+                economic_context=pass1_result.get("economic_context", ""),
+                military_context=pass1_result.get("military_context", ""),
+            )
+
+            self._current_depth = "brief"
+            pass2_raw = await self._call_ollama(pass2_prompt)
+            pass2_result = self._parse_llm_json(pass2_raw) or {}
+        finally:
+            self._current_depth = previous_depth
+
+        pass1_sources = pass1_result.get("sources_cited", [])
+        pass2_sources = pass2_result.get("sources_cited", [])
+        merged_sources = list(dict.fromkeys([*pass1_sources, *pass2_sources]))
+
+        return {
+            "title": pass1_result.get("title", f"Ground Truth Briefing: {query}"),
+            "summary": pass1_result.get("summary", ""),
+            "background": pass1_result.get("background", ""),
+            "timeline": pass1_result.get("timeline", []),
+            "economic_context": pass1_result.get("economic_context", ""),
+            "military_context": pass1_result.get("military_context", ""),
+            "perspectives": pass2_result.get("perspectives", []),
+            "current_assessment": pass2_result.get("current_assessment", ""),
+            "sources_cited": merged_sources,
+            "confidence_notes": self._merge_confidence_notes(
+                pass2_result.get("confidence_notes", ""), sources_available, None
+            ),
+            "sources_available": sources_available,
+        }
 
     async def generate_comparison(
         self,

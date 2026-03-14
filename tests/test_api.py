@@ -83,3 +83,12 @@ def test_context_endpoint_has_verification_status():
     assert "source_validation" in vs
     assert "bias_analysis" in vs
     assert "fact_check" in vs
+
+
+def test_context_stream_endpoint_returns_events():
+    """SSE context endpoint emits progress events and final result payload."""
+    with client.stream("GET", "/v1/context/test-query/stream?depth=brief") as response:
+        assert response.status_code == 200
+        chunks = "".join(response.iter_text())
+    assert "event: progress" in chunks
+    assert "event: result" in chunks

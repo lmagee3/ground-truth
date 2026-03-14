@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { BriefingPanel } from './components/BriefingPanel';
 import { CompareView } from './components/CompareView';
+import { ProgressBar } from './components/ProgressBar';
 import { SearchBar } from './components/SearchBar';
 import { SourceStatus } from './components/SourceStatus';
 import { useContext as useGTContext } from './hooks/useContext';
@@ -17,7 +18,7 @@ const TABS: { id: ActiveTab; label: string }[] = [
 
 export function App() {
   const [tab, setTab] = useState<ActiveTab>('briefing');
-  const { data, loading, error, query } = useGTContext();
+  const { data, loading, error, progress, query } = useGTContext();
 
   const handleSearch = (q: string, depth: Depth) => {
     query(q, depth);
@@ -77,6 +78,12 @@ export function App() {
                   <p className="gt-body-copy mt-2">
                     Enter a query to generate a multi-source geopolitical context briefing.
                   </p>
+                </div>
+              )}
+
+              {loading && progress && (
+                <div className="mb-5">
+                  <ProgressBar stage={progress.stage} message={progress.message} percent={progress.percent} />
                 </div>
               )}
 

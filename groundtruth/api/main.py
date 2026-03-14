@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from groundtruth import __version__
 from groundtruth.api.auth import AuthMiddleware
@@ -274,6 +277,65 @@ async def get_context(
     return result
 
 
+@app.get("/v1/context/{query}/stream")
+async def get_context_stream(
+    query: str,
+    depth: str | None = Query(None, enum=["brief", "standard", "comprehensive"]),
+    region: str | None = None,
+    start_year: int = 2000,
+    end_year: int = 2026,
+    provider: str | None = Query(None, enum=["ollama", "anthropic"]),
+):
+    queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
+
+    async def emit_progress(stage: str, message: str, percent: int) -> None:
+        await queue.put(
+            (
+                "progress",
+                {"stage": stage, "message": message, "percent": max(0, min(100, percent))},
+            )
+        )
+
+    async def worker() -> None:
+        try:
+            result = await _build_context_response(
+                query=query,
+                depth=depth,
+                region=region,
+                start_year=start_year,
+                end_year=end_year,
+                provider=provider,
+                progress_cb=emit_progress,
+            )
+            await emit_progress("complete", "Briefing ready", 100)
+            await queue.put(("result", result))
+        except Exception as exc:  # noqa: BLE001
+            await queue.put(("error", {"detail": str(exc)}))
+        finally:
+            await queue.put(None)
+
+    async def event_generator():
+        task = asyncio.create_task(worker())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                event_type, payload = event
+                yield _sse_event(event_type, payload)
+        finally:
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/v1/parse/{query}")
 async def parse_query_endpoint(query: str):
     """Parse a raw user query into structured geopolitical intent/entities."""
@@ -392,7 +454,9 @@ async def _build_context_response(
     start_year: int = 2000,
     end_year: int = 2026,
     provider: str | None = None,
+    progress_cb: Callable[[str, str, int], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
+    await _emit_progress(progress_cb, "parsing", "Parsing query...", 5)
     try:
         parsed_query = await parse_query(query)
     except Exception:
@@ -401,6 +465,7 @@ async def _build_context_response(
             "time_period": {"start_year": start_year, "end_year": end_year},
             "suggested_depth": "standard",
         }
+    await _emit_progress(progress_cb, "parsing_done", "Query parsed", 10)
 
     if depth is None:
         depth = str(parsed_query.get("suggested_depth") or "standard")
@@ -421,8 +486,16 @@ async def _build_context_response(
     if iso == "XX" and all_countries:
         iso = all_countries[0]
     country_name = query
+    display_countries = ", ".join(all_countries) if all_countries else query
+    await _emit_progress(
+        progress_cb,
+        "parsing_done",
+        f"Identified: {display_countries}",
+        12,
+    )
 
     # Fetch data for primary country
+    await _emit_progress(progress_cb, "factbook", "Fetching CIA Factbook profiles...", 15)
     try:
         country_data = await get_country(iso, start_year=start_year, end_year=end_year)
         country_name = country_data["country"]["name"]
@@ -432,6 +505,7 @@ async def _build_context_response(
             "factbook": {},
             "worldbank": {},
         }
+    await _emit_progress(progress_cb, "factbook_done", "Factbook data loaded", 25)
 
     # For bilateral/multi-country queries, fetch secondary countries and merge
     secondary_data: list[dict[str, Any]] = []
@@ -442,6 +516,8 @@ async def _build_context_response(
             secondary_data.append(sec_data)
         except HTTPException:
             pass
+
+    await _emit_progress(progress_cb, "worldbank", "Fetching World Bank indicators...", 30)
 
     # Merge secondary factbook/worldbank into country_data for richer synthesis
     if secondary_data:
@@ -470,6 +546,12 @@ async def _build_context_response(
     # Track total records across all countries for source status
     wb_records = sum(len(v) for v in country_data.get("worldbank", {}).values())
     fb_records = len(country_data.get("factbook", {}))
+    await _emit_progress(
+        progress_cb,
+        "worldbank_done",
+        f"Loaded {wb_records} economic indicators across {max(1, len(all_countries))} countries",
+        40,
+    )
 
     sources_available: dict[str, dict[str, Any]] = {
         "worldbank": {
@@ -492,6 +574,7 @@ async def _build_context_response(
     acled_events: list[dict[str, Any]] = []
 
     if not _is_test_mode():
+        await _emit_progress(progress_cb, "gdelt", "Scanning GDELT event database...", 45)
         try:
             gdelt_events = await gdelt.fetch_events(query=query, maxrecords=50, country_code=iso)
             sources_available["gdelt"] = {
@@ -505,7 +588,14 @@ async def _build_context_response(
                 "records": 0,
                 "reason": f"unavailable: {exc}",
             }
+        await _emit_progress(
+            progress_cb,
+            "gdelt_done",
+            f"Found {len(gdelt_events)} GDELT events in the last 30 days",
+            55,
+        )
 
+        await _emit_progress(progress_cb, "acled", "Querying ACLED conflict data...", 60)
         try:
             acled_events = await acled.fetch_events(
                 country=country_name,
@@ -534,6 +624,12 @@ async def _build_context_response(
                 "records": 0,
                 "reason": f"unavailable: {exc}",
             }
+        await _emit_progress(
+            progress_cb,
+            "acled_done",
+            f"Loaded {len(acled_events)} ACLED conflict records",
+            65,
+        )
     else:
         sources_available["gdelt"] = {
             "status": "skipped",
@@ -545,8 +641,11 @@ async def _build_context_response(
             "records": 0,
             "reason": "test mode",
         }
+        await _emit_progress(progress_cb, "gdelt_done", "GDELT skipped in test mode", 55)
+        await _emit_progress(progress_cb, "acled_done", "ACLED skipped in test mode", 65)
 
     # Fetch SIPRI/FAS for ALL countries, merge results
+    await _emit_progress(progress_cb, "military", "Loading SIPRI/FAS military data...", 70)
     sipri_data: dict[str, Any] = sipri.get_country_military_data(
         iso, start_year=start_year, end_year=end_year
     )
@@ -581,6 +680,20 @@ async def _build_context_response(
     if fas_data:
         fas_count = len(fas_data) if isinstance(fas_data, list) else 1
         sources_available["fas"] = {"status": "used", "records": fas_count, "reason": None}
+    else:
+        fas_count = 0
+
+    await _emit_progress(
+        progress_cb,
+        "military_done",
+        (
+            "SIPRI: "
+            f"{len(sipri_data.get('military_expenditure', []))} military expenditure records, "
+            f"{len(sipri_data.get('arms_transfers', []))} arms transfers; "
+            f"FAS profiles: {fas_count}"
+        ),
+        75,
+    )
 
     military_data = {
         "sipri": sipri_data,
@@ -591,6 +704,7 @@ async def _build_context_response(
         "acled": acled_events,
     }
 
+    await _emit_progress(progress_cb, "synthesis", "AI synthesis in progress...", 80)
     report = await engine.generate_context(
         query=query,
         depth=depth,
@@ -600,14 +714,17 @@ async def _build_context_response(
         sources_available=sources_available,
         provider=provider,
     )
+    await _emit_progress(progress_cb, "synthesis_done", "Briefing generated", 88)
 
     # --- Verification pipeline ---
+    await _emit_progress(progress_cb, "verification", "Verifying sources and claims...", 90)
     pipeline = VerificationPipeline()
     verification = await pipeline.run(
         {"query": query, "report": report, "sources": report.get("sources_cited", [])},
         depth=depth or "standard",
     )
     verification_status = verification.verification_summary
+    await _emit_progress(progress_cb, "verification_done", "Verification complete", 95)
 
     if persister.enabled:
         try:
@@ -661,6 +778,20 @@ def _report_to_markdown(report: dict[str, Any]) -> str:
         f"## Current Assessment\n{report.get('current_assessment', '')}\n\n"
         f"## Confidence Notes\n{report.get('confidence_notes', '')}\n"
     )
+
+
+async def _emit_progress(
+    progress_cb: Callable[[str, str, int], Awaitable[None]] | None,
+    stage: str,
+    message: str,
+    percent: int,
+) -> None:
+    if progress_cb is not None:
+        await progress_cb(stage, message, percent)
+
+
+def _sse_event(event_type: str, payload: dict[str, Any]) -> str:
+    return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
 
 
 QUERY_COUNTRY_MAP: dict[str, str] = {

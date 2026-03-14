@@ -10,6 +10,7 @@ This is Deliverable 1 of the Antigravity verification pipeline.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -17,9 +18,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
-import structlog
 
-log = structlog.get_logger(__name__)
+try:
+    import structlog
+
+    log = structlog.get_logger(__name__)
+except ImportError:  # pragma: no cover
+    log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Path to approved sources doc — relative to repo root

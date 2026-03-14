@@ -49,6 +49,13 @@ export interface ContextResponse {
   report: BriefingReport;
   sources: string[];
   sources_available: Record<string, SourceInfo>;
+  verification_status?: {
+    overall_status: 'pass' | 'warn' | 'fail';
+    source_validation: Record<string, unknown>;
+    bias_analysis: Record<string, unknown>;
+    fact_check: Record<string, unknown>;
+    notes?: string[];
+  };
 }
 
 export interface BriefingResponse {
@@ -88,6 +95,7 @@ export interface CountryResponse {
   country: { iso_code: string; name: string; region?: string };
   factbook: Record<string, unknown>;
   worldbank: Record<string, unknown[]>;
+  sources_available: Record<string, SourceInfo>;
 }
 
 export interface GeoJSONFeature {

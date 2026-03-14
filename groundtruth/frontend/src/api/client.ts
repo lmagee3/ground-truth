@@ -33,6 +33,80 @@ export async function fetchContext(
   });
 }
 
+export interface ProgressEvent {
+  stage: string;
+  message: string;
+  percent: number;
+}
+
+export async function fetchContextStream(
+  query: string,
+  depth: Depth = 'standard',
+  provider?: string,
+  onProgress?: (event: ProgressEvent) => void,
+): Promise<ContextResponse> {
+  const url = new URL(`${API_BASE}/v1/context/${encodeURIComponent(query)}/stream`);
+  url.searchParams.set('depth', depth);
+  if (provider) {
+    url.searchParams.set('provider', provider);
+  }
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error(`GT API error ${res.status}: ${res.statusText}`);
+  }
+
+  const body = res.body;
+  if (!body) {
+    throw new Error('Stream response body unavailable');
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result: ContextResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() ?? '';
+
+    for (const frame of frames) {
+      const lines = frame.split('\n');
+      let eventType = 'message';
+      const dataLines: string[] = [];
+
+      for (const line of lines) {
+        if (line.startsWith('event:')) {
+          eventType = line.slice(6).trim();
+        }
+        if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5).trim());
+        }
+      }
+
+      if (dataLines.length === 0) continue;
+      const payload = JSON.parse(dataLines.join('\n'));
+
+      if (eventType === 'progress' && onProgress) {
+        onProgress(payload as ProgressEvent);
+      } else if (eventType === 'result') {
+        result = payload as ContextResponse;
+      } else if (eventType === 'error') {
+        throw new Error(String((payload as { detail?: string }).detail ?? 'Stream error'));
+      }
+    }
+  }
+
+  if (!result) {
+    throw new Error('Stream ended without result');
+  }
+  return result;
+}
+
 export async function fetchBriefing(
   topic: string,
   format: BriefingFormat = 'full',

@@ -11,7 +11,7 @@ interface SearchBarProps {
 const DEPTHS: { value: Depth; label: string; desc: string }[] = [
   { value: 'brief', label: 'Brief', desc: '~30s' },
   { value: 'standard', label: 'Standard', desc: '~60s' },
-  { value: 'comprehensive', label: 'Comprehensive', desc: '~90s' },
+  { value: 'comprehensive', label: 'Comprehensive', desc: '~90s · Cloud AI' },
 ];
 
 const EXAMPLES = [
@@ -121,6 +121,12 @@ export function SearchBar({ onSearch, loading }: SearchBarProps) {
             ))}
           </div>
         </div>
+
+        {depth === 'comprehensive' && (
+          <div className="text-[10px] text-gt-warn">
+            Best results with Claude API. Set SYNTHESIS_PROVIDER=anthropic in .env
+          </div>
+        )}
 
         {parsed && query.trim() && (
           <div className="bg-[#00ff8808] border border-[#00ff8830] rounded px-3 py-2 text-xs">
