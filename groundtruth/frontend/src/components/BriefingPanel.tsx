@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { BriefingReport } from '../types/api';
 import { TimelineView } from './TimelineView';
 
@@ -6,13 +8,13 @@ interface BriefingPanelProps {
   loading?: boolean;
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mb-6">
-      <h2 className="font-mono text-xs uppercase tracking-widest text-gt-accent border-b border-gt-border pb-1 mb-3">
-        {label}
-      </h2>
-      {children}
+    <div className="gt-card mb-4">
+      <h3 className="gt-section-title">
+        <span className="text-base">◉</span> {title}
+      </h3>
+      <div className="gt-body-copy">{children}</div>
     </div>
   );
 }
@@ -36,86 +38,70 @@ export function BriefingPanel({ report, loading = false }: BriefingPanelProps) {
     return (
       <div className="space-y-6">
         <div className="h-6 bg-gt-surface2 rounded animate-pulse-slow w-2/3" />
-        <SkeletonBlock lines={3} />
-        <SkeletonBlock lines={5} />
         <SkeletonBlock lines={4} />
+        <SkeletonBlock lines={6} />
+        <SkeletonBlock lines={5} />
       </div>
     );
   }
 
   return (
     <div>
-      {/* Title + Summary */}
-      <h1 className="font-mono text-xl font-bold text-gt-text mb-1 leading-tight">
-        {report.title}
-      </h1>
+      <h1 className="text-2xl text-gt-text mb-2 tracking-[1px] uppercase">{report.title}</h1>
       {report.confidence_notes && (
-        <p className="text-xs text-gt-warn font-mono mb-4 leading-relaxed">
-          ⚠ {report.confidence_notes}
-        </p>
+        <div className="gt-note-box mb-4 text-sm">⚠ {report.confidence_notes}</div>
       )}
 
-      <Section label="Executive Summary">
-        <p className="text-sm text-gt-text font-sans leading-relaxed">{report.summary}</p>
-      </Section>
-
-      <Section label="Background">
-        <p className="text-sm text-gt-text font-sans leading-relaxed">{report.background}</p>
-      </Section>
+      <SectionCard title="Executive Summary">{report.summary}</SectionCard>
+      <SectionCard title="Background">{report.background}</SectionCard>
 
       {report.timeline?.length > 0 && (
-        <Section label="Timeline">
+        <SectionCard title="Timeline">
           <TimelineView events={report.timeline} />
-        </Section>
+        </SectionCard>
       )}
 
       {report.economic_context && (
-        <Section label="Economic Context">
-          <p className="text-sm text-gt-text font-sans leading-relaxed">{report.economic_context}</p>
-        </Section>
+        <SectionCard title="Economic Context">{report.economic_context}</SectionCard>
       )}
 
       {report.military_context && (
-        <Section label="Military Context">
-          <p className="text-sm text-gt-text font-sans leading-relaxed">{report.military_context}</p>
-        </Section>
+        <SectionCard title="Military Context">{report.military_context}</SectionCard>
       )}
 
       {report.perspectives?.length > 0 && (
-        <Section label="Interpretive Frameworks">
-          <div className="space-y-4">
-            {report.perspectives.map((p, i) => (
-              <div key={i} className="border-l-2 border-gt-accent/40 pl-3">
-                <h3 className="font-mono text-xs text-gt-accent font-semibold mb-1 uppercase tracking-wide">
-                  {p.framework}
-                </h3>
-                <p className="text-sm text-gt-text font-sans leading-relaxed mb-1">{p.argument}</p>
-                {p.evidence && (
-                  <p className="text-xs text-gt-muted font-mono">{p.evidence}</p>
+        <SectionCard title="Interpretive Frameworks">
+          <div className="space-y-3">
+            {report.perspectives.map((perspective, index) => (
+              <div key={index} className="border-l-2 border-gt-accent/50 pl-3">
+                <div className="text-gt-accent text-xs uppercase tracking-[1px] mb-1">
+                  {perspective.framework}
+                </div>
+                <div className="gt-body-copy mb-1">{perspective.argument}</div>
+                {perspective.evidence && (
+                  <div className="text-xs text-gt-blue">{perspective.evidence}</div>
                 )}
               </div>
             ))}
           </div>
-        </Section>
+        </SectionCard>
       )}
 
-      <Section label="Current Assessment">
-        <p className="text-sm text-gt-text font-sans leading-relaxed">{report.current_assessment}</p>
-      </Section>
+      <SectionCard title="Current Assessment">{report.current_assessment}</SectionCard>
 
       {report.sources_cited?.length > 0 && (
-        <Section label="Sources Cited">
+        <SectionCard title="Sources Cited">
           <div className="flex flex-wrap gap-2">
-            {report.sources_cited.map((s, i) => (
+            {report.sources_cited.map((source, index) => (
               <span
-                key={i}
-                className="px-2 py-0.5 border border-gt-border text-gt-muted font-mono text-xs rounded"
+                key={index}
+                className="px-2 py-1 border border-gt-border rounded text-xs text-gt-muted"
               >
-                {s}
+                {source}
               </span>
             ))}
           </div>
-        </Section>
+        </SectionCard>
       )}
     </div>
   );

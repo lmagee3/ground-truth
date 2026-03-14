@@ -14,54 +14,49 @@ const SOURCE_LABELS: Record<string, string> = {
   fas: 'FAS Nuclear',
 };
 
-function StatusDot({ status }: { status: string | undefined }) {
-  if (status === 'used') return <span className="w-2 h-2 rounded-full bg-gt-accent inline-block" />;
-  if (status === 'error') return <span className="w-2 h-2 rounded-full bg-gt-danger inline-block animate-pulse" />;
-  return <span className="w-2 h-2 rounded-full bg-gt-skipped inline-block" />;
+const TAG_COLORS: Record<string, string> = {
+  used: 'bg-[#00ff8820] text-gt-accent border-[#00ff8840]',
+  skipped: 'bg-[#66666620] text-gt-skipped border-[#66666640]',
+  error: 'bg-[#ff558820] text-gt-danger border-[#ff558840]',
+};
+
+function SourceTag({ status, label }: { status: string | undefined; label: string }) {
+  const tone = TAG_COLORS[status ?? 'skipped'] ?? TAG_COLORS.skipped;
+  return <span className={`px-2 py-0.5 rounded border text-xs uppercase tracking-[1px] ${tone}`}>{label}</span>;
 }
 
 export function SourceStatus({ sources, provider }: SourceStatusProps) {
-  const usedCount = Object.values(sources).filter(s => s.status === 'used').length;
+  const usedCount = Object.values(sources).filter((source) => source.status === 'used').length;
   const totalCount = Object.keys(sources).length;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="font-mono text-xs text-gt-muted uppercase tracking-widest">Sources</span>
-        <span className={`font-mono text-xs ${usedCount === totalCount ? 'text-gt-accent' : 'text-gt-warn'}`}>
-          {usedCount}/{totalCount}
-        </span>
+    <div>
+      <div className="gt-section-title text-sm mb-3">
+        <span className="text-base">◉</span> Source Contribution
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="text-xs text-gt-muted mb-3">
+        {usedCount}/{totalCount} sources contributed
+      </div>
+
+      <div className="space-y-2">
         {Object.entries(sources).map(([key, info]) => (
-          <div key={key} className="flex items-start gap-2 group">
-            <StatusDot status={info.status} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-mono ${info.status === 'used' ? 'text-gt-text' : 'text-gt-skipped'}`}>
-                  {SOURCE_LABELS[key] ?? key}
-                </span>
-                {info.records !== undefined && info.records > 0 && (
-                  <span className="text-xs text-gt-muted">{info.records.toLocaleString()}</span>
-                )}
-              </div>
-              {info.status !== 'used' && info.reason && (
-                <p className="text-xs text-gt-skipped leading-tight mt-0.5">{info.reason}</p>
-              )}
+          <div key={key} className="border border-gt-border rounded p-2.5 bg-gt-surface2/40">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-gt-text">{SOURCE_LABELS[key] ?? key}</span>
+              <SourceTag status={info.status} label={info.status ?? 'skipped'} />
+            </div>
+            <div className="flex items-center justify-between mt-1 text-xs text-gt-muted">
+              <span>{info.reason ?? 'contributed to synthesis'}</span>
+              <span>{info.records ?? 0} records</span>
             </div>
           </div>
         ))}
       </div>
 
       {provider && (
-        <div className="mt-2 pt-2 border-t border-gt-border">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-gt-accent/50 inline-block" />
-            <span className="text-xs font-mono text-gt-muted">
-              Provider: <span className="text-gt-accent">{provider}</span>
-            </span>
-          </div>
+        <div className="mt-3 text-xs text-gt-muted">
+          Provider: <span className="text-gt-accent uppercase">{provider}</span>
         </div>
       )}
     </div>

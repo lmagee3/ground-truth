@@ -55,3 +55,31 @@ def test_compare_endpoint_exists():
     assert "event_b" in data
     assert "comparison" in data
     assert "sources_available" in data
+
+
+def test_country_endpoint_has_sources_available():
+    """F-001: /v1/country/{iso} must include sources_available field."""
+    response = client.get("/v1/country/UA")
+    assert response.status_code == 200
+    data = response.json()
+    assert "sources_available" in data, "F-001: sources_available missing from country response"
+    sa = data["sources_available"]
+    assert "cia_factbook" in sa
+    assert "worldbank" in sa
+    for source in sa.values():
+        assert "status" in source
+        assert "records" in source
+
+
+def test_context_endpoint_has_verification_status():
+    """Context endpoint must include verification_status from the verification pipeline."""
+    response = client.get("/v1/context/test-query")
+    assert response.status_code == 200
+    data = response.json()
+    assert "verification_status" in data, "verification_status missing from context response"
+    vs = data["verification_status"]
+    assert "overall_status" in vs
+    assert vs["overall_status"] in ("pass", "warn", "fail")
+    assert "source_validation" in vs
+    assert "bias_analysis" in vs
+    assert "fact_check" in vs

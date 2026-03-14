@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from groundtruth import __version__
+from groundtruth.api.auth import AuthMiddleware
+from groundtruth.api.query_parser import parse_query
 from groundtruth.ingestion.acled import ACLEDIngestor
 from groundtruth.ingestion.cia_factbook import CIAFactbookIngestor
 from groundtruth.ingestion.fas import FASIngestor
@@ -19,22 +22,7 @@ from groundtruth.ingestion.persist import DatabasePersister
 from groundtruth.ingestion.sipri import SIPRIIngestor
 from groundtruth.ingestion.worldbank import INDICATOR_IDS, WorldBankIngestor
 from groundtruth.synthesis.engine import ContextEngine
-
-app = FastAPI(
-    title="Ground Truth",
-    description="Open-source geopolitical context engine. The intelligence briefing behind the radar blip.",
-    version=__version__,
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from groundtruth.verification.pipeline import VerificationPipeline
 
 worldbank = WorldBankIngestor()
 factbook = CIAFactbookIngestor()
@@ -53,13 +41,34 @@ REGION_COUNTRIES: dict[str, list[str]] = {
 }
 
 
-@app.on_event("startup")
-async def startup_seed() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
+    """Application lifespan — replaces deprecated @app.on_event('startup')."""
     if persister.enabled:
         try:
             await persister.seed_approved_sources()
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
+    yield
+
+
+app = FastAPI(
+    title="Ground Truth",
+    description="Open-source geopolitical context engine. The intelligence briefing behind the radar blip.",
+    version=__version__,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(AuthMiddleware)
 
 
 @app.get("/")
@@ -109,48 +118,53 @@ async def get_events_geojson(
         try:
             gdelt_events = await gdelt.fetch_events(query=iso, country_code=iso, maxrecords=50)
             for ev in gdelt_events:
-                features.append({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [
-                            float(ev.get("longitude") or 0),
-                            float(ev.get("latitude") or 0),
-                        ],
-                    },
-                    "properties": {
-                        "event_type": ev.get("event_type", "article"),
-                        "date": str(ev.get("date", "")),
-                        "description": ev.get("description", ""),
-                        "source": "GDELT",
-                        "actors": [],
-                        "source_url": ev.get("source_url", ""),
-                    },
-                })
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [
+                                float(ev.get("longitude") or 0),
+                                float(ev.get("latitude") or 0),
+                            ],
+                        },
+                        "properties": {
+                            "event_type": ev.get("event_type", "article"),
+                            "date": str(ev.get("date", "")),
+                            "description": ev.get("description", ""),
+                            "source": "GDELT",
+                            "actors": [],
+                            "source_url": ev.get("source_url", ""),
+                        },
+                    }
+                )
         except Exception:  # noqa: BLE001
             pass
 
         if acled.configured:
             try:
                 from datetime import timedelta
+
                 start = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
                 end = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 acled_events = await acled.fetch_events(start_date=start, end_date=end)
                 for ev in acled_events:
                     lat = ev.get("latitude") or 0
                     lon = ev.get("longitude") or 0
-                    features.append({
-                        "type": "Feature",
-                        "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
-                        "properties": {
-                            "event_type": ev.get("event_type", "unknown"),
-                            "date": str(ev.get("date", "")),
-                            "description": ev.get("description", ""),
-                            "source": "ACLED",
-                            "actors": ev.get("actors", []),
-                            "source_url": ev.get("source_url", ""),
-                        },
-                    })
+                    features.append(
+                        {
+                            "type": "Feature",
+                            "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                            "properties": {
+                                "event_type": ev.get("event_type", "unknown"),
+                                "date": str(ev.get("date", "")),
+                                "description": ev.get("description", ""),
+                                "source": "ACLED",
+                                "actors": ev.get("actors", []),
+                                "source_url": ev.get("source_url", ""),
+                            },
+                        }
+                    )
             except Exception:  # noqa: BLE001
                 pass
 
@@ -208,16 +222,33 @@ async def get_country(iso_code: str, start_year: int = 2000, end_year: int = 202
     except Exception:
         indicators_payload = {}
 
+    # F-001: include sources_available so callers know what data was loaded
+    wb_records = sum(len(v) for v in indicators_payload.values())
+    fb_records = len(profile_payload)
+    country_sources_available: dict[str, dict[str, Any]] = {
+        "cia_factbook": {
+            "status": "used" if fb_records else "skipped",
+            "records": fb_records,
+            "reason": "no factbook data" if not fb_records else None,
+        },
+        "worldbank": {
+            "status": "used" if wb_records else "skipped",
+            "records": wb_records,
+            "reason": "no world bank data" if not wb_records else None,
+        },
+    }
+
     payload = {
         "country": {"iso_code": iso, "name": country_name},
         "factbook": profile_payload,
         "worldbank": indicators_payload,
+        "sources_available": country_sources_available,
     }
 
     if persister.enabled:
         try:
             await persister.upsert_country_bundle(payload)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     return payload
@@ -226,7 +257,7 @@ async def get_country(iso_code: str, start_year: int = 2000, end_year: int = 202
 @app.get("/v1/context/{query}")
 async def get_context(
     query: str,
-    depth: str = Query("standard", enum=["brief", "standard", "comprehensive"]),
+    depth: str | None = Query(None, enum=["brief", "standard", "comprehensive"]),
     region: str | None = None,
     start_year: int = 2000,
     end_year: int = 2026,
@@ -241,6 +272,12 @@ async def get_context(
         provider=provider,
     )
     return result
+
+
+@app.get("/v1/parse/{query}")
+async def parse_query_endpoint(query: str):
+    """Parse a raw user query into structured geopolitical intent/entities."""
+    return await parse_query(query)
 
 
 @app.get("/v1/timeline/{region}")
@@ -350,15 +387,39 @@ async def get_sources(report_id: str):
 
 async def _build_context_response(
     query: str,
-    depth: str,
+    depth: str | None,
     region: str | None = None,
     start_year: int = 2000,
     end_year: int = 2026,
     provider: str | None = None,
 ) -> dict[str, Any]:
+    try:
+        parsed_query = await parse_query(query)
+    except Exception:
+        parsed_query = {
+            "countries": [],
+            "time_period": {"start_year": start_year, "end_year": end_year},
+            "suggested_depth": "standard",
+        }
+
+    if depth is None:
+        depth = str(parsed_query.get("suggested_depth") or "standard")
+
+    parsed_period = parsed_query.get("time_period", {})
+    if start_year == 2000 and isinstance(parsed_period, dict) and parsed_period.get("start_year"):
+        start_year = int(parsed_period.get("start_year", start_year))
+    if end_year == 2026 and isinstance(parsed_period, dict) and parsed_period.get("end_year"):
+        end_year = int(parsed_period.get("end_year", end_year))
+
     # Extract ALL countries from the query (e.g., "US-Iran Tensions" → ["IR", "US"])
     all_countries = _extract_countries(query)
+    if not all_countries:
+        parsed_countries = parsed_query.get("countries", [])
+        if isinstance(parsed_countries, list):
+            all_countries = [str(item).upper() for item in parsed_countries if str(item).strip()]
     iso = _to_iso(query)  # primary country for the response envelope
+    if iso == "XX" and all_countries:
+        iso = all_countries[0]
     country_name = query
 
     # Fetch data for primary country
@@ -540,6 +601,14 @@ async def _build_context_response(
         provider=provider,
     )
 
+    # --- Verification pipeline ---
+    pipeline = VerificationPipeline()
+    verification = await pipeline.run(
+        {"query": query, "report": report, "sources": report.get("sources_cited", [])},
+        depth=depth or "standard",
+    )
+    verification_status = verification.verification_summary
+
     if persister.enabled:
         try:
             await persister.persist_events(gdelt_events + acled_events)
@@ -547,10 +616,10 @@ async def _build_context_response(
                 query=query,
                 depth=depth,
                 content=report,
-                verification_status="pending",
+                verification_status=verification_status["overall_status"],
                 model_used=provider or engine.provider,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     return {
@@ -561,6 +630,7 @@ async def _build_context_response(
         "report": report,
         "sources": report.get("sources_cited", []),
         "sources_available": sources_available,
+        "verification_status": verification_status,
     }
 
 
@@ -638,9 +708,35 @@ def _extract_countries(query: str) -> list[str]:
     for word in query.split():
         clean = word.strip(" -–—,.!?()[]").upper()
         if len(clean) == 2 and clean.isalpha():
-            if clean in ("US", "UK", "IR", "UA", "RU", "CN", "IN", "IL", "PS",
-                         "IQ", "SY", "KP", "KR", "JP", "DE", "FR", "GB", "SA",
-                         "TR", "TW", "YE", "LY", "AF", "PK", "GE", "AM", "AZ"):
+            if clean in (
+                "US",
+                "UK",
+                "IR",
+                "UA",
+                "RU",
+                "CN",
+                "IN",
+                "IL",
+                "PS",
+                "IQ",
+                "SY",
+                "KP",
+                "KR",
+                "JP",
+                "DE",
+                "FR",
+                "GB",
+                "SA",
+                "TR",
+                "TW",
+                "YE",
+                "LY",
+                "AF",
+                "PK",
+                "GE",
+                "AM",
+                "AZ",
+            ):
                 if clean not in found:
                     found.append(clean)
 

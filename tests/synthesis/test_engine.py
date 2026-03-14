@@ -18,8 +18,8 @@ async def test_prompt_construction():
         events={"gdelt": [{"description": "event"}], "acled": []},
         military_data={"sipri": {}, "fas": {}},
     )
-    assert "QUERY: ukraine" in prompt
-    assert "WORLD BANK INDICATORS" in prompt
+    assert "ukraine" in prompt.lower()
+    assert "ECONOMIC INDICATORS" in prompt
 
 
 @pytest.mark.asyncio

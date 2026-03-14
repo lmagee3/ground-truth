@@ -5,6 +5,7 @@ import type {
   HealthResponse,
   CountryResponse,
   GeoJSONCollection,
+  QueryParseResponse,
   Depth,
   BriefingFormat,
 } from '../types/api';
@@ -66,4 +67,8 @@ export async function fetchGeoJSON(iso: string, days = 30): Promise<GeoJSONColle
   return request<GeoJSONCollection>(`/v1/events/${iso.toUpperCase()}.geojson`, {
     days: String(days),
   });
+}
+
+export async function fetchQueryParse(query: string): Promise<QueryParseResponse> {
+  return request<QueryParseResponse>(`/v1/parse/${encodeURIComponent(query)}`);
 }

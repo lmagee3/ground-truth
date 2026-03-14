@@ -108,3 +108,16 @@ export interface GeoJSONCollection {
   features: GeoJSONFeature[];
   metadata: { iso_code: string; days: number; total: number };
 }
+
+export interface QueryParseResponse {
+  query_type: 'country' | 'bilateral' | 'regional' | 'topical';
+  countries: string[];
+  region: 'middle-east' | 'europe' | 'asia' | 'africa' | 'americas' | null;
+  topic: string;
+  time_period: {
+    start_year: number;
+    end_year: number;
+  };
+  key_entities: string[];
+  suggested_depth: Depth;
+}

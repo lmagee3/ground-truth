@@ -59,11 +59,10 @@ interface GTContext {
     document.head.appendChild(style);
   }
 
-  function renderWidget(el: HTMLElement, data: GTContext | null, error: string | null, theme: string): void {
-    const isLight = theme === 'light';
-    const apiUrl = el.dataset.apiUrl ?? 'http://localhost:8000';
-    const appUrl = el.dataset.appUrl ?? 'https://gt.chaosmonk.dev';
-    const query = el.dataset.query ?? '';
+function renderWidget(el: HTMLElement, data: GTContext | null, error: string | null, theme: string): void {
+  const isLight = theme === 'light';
+  const appUrl = el.dataset.appUrl ?? 'https://gt.chaosmonk.dev';
+  const query = el.dataset.query ?? '';
 
     if (error) {
       el.innerHTML = `<div class="gt-widget${isLight ? ' gt-widget--light' : ''}"><p class="gt-error">Ground Truth: ${error}</p></div>`;
