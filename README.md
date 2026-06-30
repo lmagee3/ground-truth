@@ -1,159 +1,106 @@
 # Ground Truth
 
-**An AI-assisted context engine for understanding how complex events got here.**
+**The intelligence briefing behind the radar blip.**
 
-Ground Truth is a portfolio project exploring how primary sources, structured timelines, and AI-assisted synthesis can turn noisy geopolitical events into clearer context.
+A diplomatic decision-support platform that synthesizes primary authoritative sources into actionable context briefings, de-escalation scenarios, and intervention feasibility scoring.
 
-The core idea is simple:
-
-> Most tools tell you what happened. Ground Truth is designed to help explain how it got there.
+![Ground Truth Diplomat Dashboard](ground-truth-wide.png)
 
 ---
 
-## What this project demonstrates
+## What Ground Truth Does
 
-This repo is meant to show my ability to think through:
+Most tools tell you *what* is happening. Ground Truth tells you *why* it's happening and *what to do about it*.
 
-- source-driven research workflows
-- AI-assisted summarization and synthesis
-- timeline and context generation
-- API-first product architecture
-- credibility, verification, and traceability in AI systems
-- product framing for intelligence, research, and analysis tools
+The platform ingests data exclusively from primary authoritative sources — government archives, declassified intelligence, institutional databases, treaty collections, conflict event datasets, and military capability data — and synthesizes it into structured intelligence briefings with full source citations.
 
-This is not positioned as a finished intelligence product. It is an evolving product concept and technical direction for building more transparent AI research systems.
+**Phase 1 (Complete):** Context engine with 9 primary data sources, AI synthesis, verification pipeline, and bias detection.
+
+**Phase 2 (In Progress):** Recommendation engine for de-escalation scenarios, aid allocation modeling, diplomatic channel mapping, and intervention feasibility scoring. *"The Palantir for peace."*
 
 ---
 
-## The problem
+## Core Principles
 
-News, social media, and dashboards are good at showing current events. They are not always good at explaining the deeper chain of causes, incentives, historical decisions, treaties, conflicts, and economic pressures behind those events.
-
-For analysts, students, operators, and curious readers, the hard part is not finding information. The hard part is organizing it into a reliable picture without getting trapped in one narrative.
-
----
-
-## The concept
-
-Ground Truth is designed around four questions:
-
-1. **What happened?**
-2. **What led up to it?**
-3. **Which sources support the explanation?**
-4. **Where are the uncertainty, gaps, and competing interpretations?**
-
-Instead of treating AI output as the final answer, the system should treat AI as a synthesis layer sitting on top of traceable sources.
+- **Primary sources only** — no Wikipedia, no news articles, no editorial content
+- **Every claim cited** — source URL required for all factual assertions
+- **Multiple perspectives** — context reports present competing interpretive frameworks
+- **System never picks sides** — presents ranked scenarios with transparent reasoning; human always decides
+- **Open-source core** — MIT license for maximum institutional adoption
 
 ---
 
-## Intended workflow
+## Data Sources
 
-```text
-Query/event → source retrieval → timeline construction → context synthesis → source trace → confidence notes
+| Category | Sources |
+|----------|---------|
+| **US Government** | Library of Congress, National Archives (NARA), Congress.gov, CIA World Factbook, State Dept, OFAC sanctions |
+| **International** | World Bank, ACLED conflict events, UCDP, GDELT |
+| **Military/Defense** | SIPRI arms transfers & military spending, FAS nuclear notebooks & weapons systems, NATO treaty archives |
+| **Phase 2 (adding)** | UN Comtrade, WTO, OECD DAC, UNHCR, FAO, UN Treaty Collection, Freedom House, V-Dem |
+
+---
+
+## Architecture
+
+```
+Query → Source Retrieval → Data Summarization → AI Synthesis → Verification Pipeline → Briefing Output
 ```
 
-A mature version of the system would return:
-
-- a concise briefing
-- a historical timeline
-- relevant treaties, policy decisions, or economic pressures
-- multiple interpretations where appropriate
-- citations or source links for key claims
-- confidence notes and known gaps
-
----
-
-## Example use cases
-
-| Use case | Example question |
-|---|---|
-| Geopolitical context | Why are tensions rising in a specific region? |
-| Policy research | What decisions led to the current dispute? |
-| Student research | What primary sources explain this event? |
-| Analyst workflow | What are the timelines, actors, and incentives? |
-| Media literacy | What context is missing from a headline? |
+| Layer | Stack |
+|-------|-------|
+| Backend | Python 3.11+ / FastAPI |
+| Database | PostgreSQL + pgvector |
+| Cache | Redis |
+| AI (dev) | Ollama local (zero cost) |
+| AI (production) | Claude API (paid tiers only) |
+| Frontend | React 18 + TypeScript |
+| Hosting | Vercel (frontend) + Railway (API) |
 
 ---
 
-## Proposed architecture
+## Target Users
 
-```mermaid
-flowchart LR
-    A[User query] --> B[Source discovery]
-    B --> C[Source filtering]
-    C --> D[Timeline builder]
-    D --> E[AI synthesis layer]
-    E --> F[Verification notes]
-    F --> G[Briefing output]
-
-    C --> H[Source index]
-    H --> E
-```
+- **UN agencies** (UNDP, UNHCR, OCHA) — aid allocation decisions
+- **USAID / State Department** — foreign aid strategy, diplomatic planning
+- **Think tanks** (Brookings, RAND, CFR, Chatham House) — policy research
+- **University IR departments** — teaching and research
+- **Defense/policy analysts** — military capability context with SIPRI, FAS, OFAC data
 
 ---
 
-## Candidate source categories
+## Positioning
 
-The long-term design favors authoritative and primary-source material where possible:
+**World Monitor** = radar (what is happening now). Real-time event feeds, macro analytics.
 
-- government archives and public records
-- treaty and policy databases
-- international organization datasets
-- conflict event datasets
-- economic and development indicators
-- declassified historical documents
-- congressional or parliamentary research reports
+**Ground Truth** = analyst's desk (why it's happening, what to do about it). Historical context, primary source citations, recommendation engine.
 
-The goal is not to eliminate interpretation. The goal is to make interpretation more visible, sourced, and challengeable.
+Integration play: WM users click a hotspot, GT provides the deep briefing and diplomatic options.
 
 ---
 
-## Possible stack
+## Current Status
 
-| Layer | Candidate tools |
-|---|---|
-| API | Python, FastAPI |
-| Data | PostgreSQL, SQLite, pgvector concepts |
-| Retrieval | Source connectors, scraping where permitted, public APIs |
-| AI layer | Claude, OpenAI, local LLMs via Ollama |
-| Frontend | React or lightweight dashboard |
-| Output | JSON briefings, timelines, reports, web UI |
-
----
-
-## Current status
-
-Ground Truth is currently a **public concept and architecture repo**. The README describes the product direction and the kinds of systems thinking behind it. Some implementation details may change as the project matures.
-
-Near-term improvements:
-
-- define a minimal local demo
-- add sample source-ingestion script
-- add example briefing output
-- add source reliability notes
-- add a small test dataset
-- separate confirmed functionality from future roadmap
-
----
-
-## Why I built this
-
-My background is in military IT, operations, cybersecurity, and business strategy. I am interested in tools that help people make sense of complex environments without pretending the world is simpler than it is.
-
-Ground Truth is part of that larger pattern: practical AI systems that improve clarity, traceability, and decision-making.
-
----
-
-## About
-
-Built by **Lawrence Magee** as part of the MAGE Software / Malleus Prendere project ecosystem.
-
-- GitHub: [@lmagee3](https://github.com/lmagee3)
-- Profile: [lmagee3](https://github.com/lmagee3)
-- Related tool line: [Chaos Monk](https://chaosmonk.netlify.app)
+| Sprint | Status | Shipped |
+|--------|--------|---------|
+| 1-2 | Done | World Bank, CIA Factbook, GDELT, ACLED, SIPRI, FAS ingestion. DB models, API, Source Validator |
+| 3-4 | Done | React frontend, GeoJSON endpoint, Ollama model chain, AI query parser, data summarization pipeline |
+| 5 | Done | SSE streaming, two-pass synthesis, depth tier gating, 71 tests passing |
+| 6 | In Progress | Library of Congress + Congress.gov + NARA ingestors |
+| 7+ | Next | WorldMonitor MCP integration, Phase 2 data sources, recommendation engine v1 |
 
 ---
 
 ## License
 
-MIT unless otherwise noted in future project files.
+MIT
+
+---
+
+## About
+
+Built by **Lawrence Magee** — CEO, Malleus Prendere LLC. 20-year US Army IT veteran. SDVOSB eligible.
+
+Open-source core distributed under [Chaos Monk](https://chaosmonk.netlify.app).
+
+GitHub: [@lmagee3](https://github.com/lmagee3)
