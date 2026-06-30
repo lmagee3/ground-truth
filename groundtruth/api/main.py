@@ -485,7 +485,7 @@ async def _build_context_response(
     iso = _to_iso(query)  # primary country for the response envelope
     if iso == "XX" and all_countries:
         iso = all_countries[0]
-    country_name = query
+    _country_name = query  # noqa: F841  — resolved later from country_data
     display_countries = ", ".join(all_countries) if all_countries else query
     await _emit_progress(
         progress_cb,
@@ -592,7 +592,7 @@ async def _build_context_response(
 
     acled_events, acled_skip_reason = acled_result
     sipri_data, fas_data = military_result
-    country_name = country_data["country"].get("name", query)
+    _country_name = country_data["country"].get("name", query)  # noqa: F841
 
     await _emit_progress(progress_cb, "data_fetch_done", "All data sources loaded", 65)
 
@@ -642,7 +642,11 @@ async def _build_context_response(
         "gdelt": {
             "status": "used" if gdelt_events else "skipped",
             "records": len(gdelt_events),
-            "reason": ("test mode" if _is_test_mode() else ("no matching events" if not gdelt_events else None)),
+            "reason": (
+                "test mode"
+                if _is_test_mode()
+                else ("no matching events" if not gdelt_events else None)
+            ),
         },
         "acled": {
             "status": "used" if acled_events else "skipped",

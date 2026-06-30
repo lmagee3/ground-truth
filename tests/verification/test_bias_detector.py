@@ -22,8 +22,16 @@ def _make_report(**kwargs) -> dict:
         "current_assessment": "The situation reportedly remains stable according to some analysts.",
         "confidence_notes": "Sources may be incomplete.",
         "perspectives": [
-            {"framework": "Realist", "argument": "Power dynamics drive policy.", "evidence": "Troop movements"},
-            {"framework": "Liberal", "argument": "Institutions matter.", "evidence": "Treaty participation"},
+            {
+                "framework": "Realist",
+                "argument": "Power dynamics drive policy.",
+                "evidence": "Troop movements",
+            },
+            {
+                "framework": "Liberal",
+                "argument": "Institutions matter.",
+                "evidence": "Treaty participation",
+            },
         ],
         "timeline": [
             {"year": 1990, "event": "End of Cold War", "source": "historian"},
@@ -71,9 +79,7 @@ class TestBiasDetectorHighBias:
         assert result.overall_status in ("warn", "fail")
 
     def test_expanded_geopolitical_terms_flagged(self, detector):
-        report = _make_report(
-            summary="The so-called expansionist strongman leads a rogue nation."
-        )
+        report = _make_report(summary="The so-called expansionist strongman leads a rogue nation.")
         result = detector.analyze(report)
         assert result.overall_status in ("warn", "fail")
         assert result.score >= 0.35
@@ -81,9 +87,9 @@ class TestBiasDetectorHighBias:
 
 class TestBiasDetectorSourceImbalance:
     def test_single_perspective_warns(self, detector):
-        report = _make_report(perspectives=[
-            {"framework": "Realist", "argument": "Power rules.", "evidence": "Data."}
-        ])
+        report = _make_report(
+            perspectives=[{"framework": "Realist", "argument": "Power rules.", "evidence": "Data."}]
+        )
         result = detector.analyze(report)
         assert result.overall_status in ("warn", "fail")
         assert any("perspective" in f.lower() for f in result.flags)

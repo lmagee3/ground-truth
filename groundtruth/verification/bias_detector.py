@@ -128,11 +128,11 @@ class BiasDetector:
     """Analyse a synthesised context report for language and framing bias."""
 
     # Proportion of words that must match medium-bias terms before it warns
-    _MEDIUM_DENSITY_WARN_THRESHOLD = 0.008   # ~0.8% of all words
-    _MEDIUM_DENSITY_FAIL_THRESHOLD = 0.020   # ~2.0% of all words
+    _MEDIUM_DENSITY_WARN_THRESHOLD = 0.008  # ~0.8% of all words
+    _MEDIUM_DENSITY_FAIL_THRESHOLD = 0.020  # ~2.0% of all words
 
     # Minimum hedge-pattern hits per 1000 words before flagging over-confidence
-    _HEDGE_RATIO_WARN_THRESHOLD = 0.5   # hits per 1000 words
+    _HEDGE_RATIO_WARN_THRESHOLD = 0.5  # hits per 1000 words
 
     def analyze(self, report: dict) -> BiasResult:
         """Run all bias checks against a context report dict.
@@ -156,9 +156,7 @@ class BiasDetector:
         medium_hits = self._find_terms(full_text, _MEDIUM_BIAS_TERMS)
 
         if high_hits:
-            flags.append(
-                f"High-bias loaded language detected: {', '.join(sorted(high_hits))}"
-            )
+            flags.append(f"High-bias loaded language detected: {', '.join(sorted(high_hits))}")
             score = max(score, 0.75)
 
         word_count = max(len(full_text.split()), 1)
@@ -170,9 +168,7 @@ class BiasDetector:
             )
             score = max(score, 0.65)
         elif medium_density >= self._MEDIUM_DENSITY_WARN_THRESHOLD and medium_hits:
-            flags.append(
-                f"Elevated loaded language: {', '.join(sorted(medium_hits))}"
-            )
+            flags.append(f"Elevated loaded language: {', '.join(sorted(medium_hits))}")
             score = max(score, 0.35)
 
         # --- Check 2: Source imbalance ---
@@ -253,7 +249,4 @@ class BiasDetector:
     @staticmethod
     def _count_hedge_patterns(text: str) -> int:
         """Count total hedge-pattern occurrences in the text."""
-        return sum(
-            len(re.findall(pattern, text, re.IGNORECASE))
-            for pattern in _HEDGE_PATTERNS
-        )
+        return sum(len(re.findall(pattern, text, re.IGNORECASE)) for pattern in _HEDGE_PATTERNS)

@@ -86,9 +86,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self._rate_enabled: bool = self._rate_limit > 0
 
         # Per-IP token buckets
-        self._buckets: dict[str, _TokenBucket] = defaultdict(
-            lambda: _TokenBucket(self._rate_limit)
-        )
+        self._buckets: dict[str, _TokenBucket] = defaultdict(lambda: _TokenBucket(self._rate_limit))
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path

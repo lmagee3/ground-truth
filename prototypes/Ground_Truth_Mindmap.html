@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ground Truth — Project Mindmap</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    overflow-x: hidden;
+  }
+  .header {
+    text-align: center;
+    padding: 40px 20px 20px;
+    border-bottom: 1px solid #1a1a2e;
+  }
+  .header h1 {
+    font-size: 2.4em;
+    color: #00ff88;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .header .subtitle {
+    color: #666;
+    font-size: 0.9em;
+    letter-spacing: 2px;
+  }
+  .header .tagline {
+    color: #ff6b35;
+    font-size: 1.1em;
+    margin-top: 12px;
+    font-style: italic;
+  }
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 30px 20px;
+  }
+
+  /* Navigation tabs */
+  .tab-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: #111;
+    border: 1px solid #222;
+    color: #888;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85em;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    border-radius: 4px;
+  }
+  .tab-btn:hover { border-color: #00ff88; color: #00ff88; }
+  .tab-btn.active { background: #00ff8815; border-color: #00ff88; color: #00ff88; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Section styling */
+  .section {
+    margin-bottom: 40px;
+  }
+  .section-title {
+    font-size: 1.3em;
+    color: #00ff88;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1a2a1f;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title .icon { font-size: 1.2em; }
+
+  /* Cards */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: #0d0d14;
+    border: 1px solid #1a1a2e;
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.2s;
+    cursor: default;
+  }
+  .card:hover { border-color: #00ff8855; transform: translateY(-2px); }
+  .card h3 {
+    color: #fff;
+    font-size: 1em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card .desc { color: #999; font-size: 0.82em; line-height: 1.6; margin-bottom: 10px; }
+  .card .meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.72em;
+    letter-spacing: 0.5px;
+  }
+  .tag-api { background: #00ff8820; color: #00ff88; border: 1px solid #00ff8840; }
+  .tag-csv { background: #3388ff20; color: #3388ff; border: 1px solid #3388ff40; }
+  .tag-free { background: #ffaa0020; color: #ffaa00; border: 1px solid #ffaa0040; }
+  .tag-key { background: #ff558820; color: #ff5588; border: 1px solid #ff558840; }
+  .tag-bulk { background: #aa55ff20; color: #aa55ff; border: 1px solid #aa55ff40; }
+  .tag-tier { background: #ff663320; color: #ff6633; border: 1px solid #ff663340; }
+  .tag-realtime { background: #00ccff20; color: #00ccff; border: 1px solid #00ccff40; }
+  .tag-historical { background: #cc88ff20; color: #cc88ff; border: 1px solid #cc88ff40; }
+
+  /* Tier indicators */
+  .tier {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: bold;
+    margin-left: auto;
+  }
+  .tier-1 { background: #00ff8820; color: #00ff88; }
+  .tier-2 { background: #ffaa0020; color: #ffaa00; }
+  .tier-3 { background: #ff558820; color: #ff5588; }
+
+  /* Architecture diagram */
+  .arch-diagram {
+    background: #0d0d14;
+    border: 1px solid #1a1a2e;
+    border-radius: 8px;
+    padding: 30px;
+    font-size: 0.8em;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+    color: #aaa;
+  }
+  .arch-diagram .highlight { color: #00ff88; }
+  .arch-diagram .accent { color: #ff6b35; }
+  .arch-diagram .blue { color: #3388ff; }
+  .arch-diagram .purple { color: #aa55ff; }
+
+  /* Revenue table */
+  .rev-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+  .rev-table th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid #00ff8840;
+    color: #00ff88;
+    font-weight: normal;
+    letter-spacing: 1px;
+  }
+  .rev-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #1a1a2e;
+    color: #ccc;
+  }
+  .rev-table tr:hover td { background: #0d0d14; }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #00ff88, #ff6b35, #3388ff);
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: #0d0d14;
+    border: 1px solid #1a1a2e;
+    border-radius: 6px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00ff88;
+    border: 2px solid #0a0a0f;
+  }
+  .timeline-item .week {
+    color: #00ff88;
+    font-size: 0.8em;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .timeline-item h4 { color: #fff; font-size: 0.95em; margin-bottom: 6px; }
+  .timeline-item p { color: #888; font-size: 0.82em; line-height: 1.5; }
+
+  /* Notes */
+  .note-box {
+    background: #1a1a0a;
+    border: 1px solid #333300;
+    border-left: 3px solid #ffaa00;
+    padding: 16px 20px;
+    border-radius: 4px;
+    margin: 20px 0;
+    font-size: 0.85em;
+    color: #ccaa44;
+    line-height: 1.6;
+  }
+
+  .partnership-box {
+    background: #0a1a1a;
+    border: 1px solid #003333;
+    border-left: 3px solid #00ccff;
+    padding: 16px 20px;
+    border-radius: 4px;
+    margin: 20px 0;
+    font-size: 0.85em;
+    color: #66cccc;
+    line-height: 1.6;
+  }
+
+  /* Competitive landscape */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .comp-card {
+    background: #0d0d14;
+    border: 1px solid #1a1a2e;
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .comp-card h4 { color: #ff6b35; font-size: 0.9em; margin-bottom: 6px; }
+  .comp-card .what { color: #888; font-size: 0.8em; margin-bottom: 8px; }
+  .comp-card .gap { color: #00ff88; font-size: 0.78em; font-style: italic; }
+
+  @media (max-width: 768px) {
+    .card-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 1.6em; }
+    .tab-btn { padding: 8px 12px; font-size: 0.75em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>GROUND TRUTH</h1>
+  <div class="subtitle">GEOPOLITICAL CONTEXT ENGINE — BY CHAOS MONK</div>
+  <div class="tagline">"The intelligence briefing behind the radar blip"</div>
+</div>
+
+<div class="container">
+
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab('vision')">VISION</button>
+    <button class="tab-btn" onclick="showTab('sources')">DATA SOURCES</button>
+    <button class="tab-btn" onclick="showTab('arch')">ARCHITECTURE</button>
+    <button class="tab-btn" onclick="showTab('revenue')">REVENUE</button>
+    <button class="tab-btn" onclick="showTab('sprint')">SPRINT PLAN</button>
+    <button class="tab-btn" onclick="showTab('partnership')">PARTNERSHIP</button>
+    <button class="tab-btn" onclick="showTab('landscape')">LANDSCAPE</button>
+  </div>
+
+  <!-- ===== VISION TAB ===== -->
+  <div id="vision" class="tab-content active">
+    <div class="section">
+      <div class="section-title"><span class="icon">◉</span> WHAT IS GROUND TRUTH?</div>
+      <div class="card" style="max-width: 900px;">
+        <div class="desc" style="font-size: 0.92em; line-height: 1.8; color: #ccc;">
+          An open-source geopolitical context engine that answers one question:<br><br>
+          <span style="color: #00ff88; font-size: 1.1em;">"How did we get here?"</span><br><br>
+          World Monitor shows you WHAT is happening on the globe right now.<br>
+          Ground Truth shows you WHY it's happening — the 10, 20, 50-year chain of events, treaties, betrayals, economic pressures, and power shifts that led to this exact moment.<br><br>
+          <span style="color: #ff6b35;">No media narrative. No spin. No feelings spared.</span><br>
+          Just primary sources, verified data, and structured historical context — delivered as an API that anyone can integrate.
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">◎</span> CORE PRINCIPLES</div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>🔒 Source Transparency</h3>
+          <div class="desc">Every claim links to its primary source. Government archives, declassified documents, treaty texts, economic data — never secondary media. Users can verify everything themselves.</div>
+        </div>
+        <div class="card">
+          <h3>⚖️ Engineered Neutrality</h3>
+          <div class="desc">Not "we promise to be unbiased." Instead: every context report presents multiple competing narratives with the evidence for each. The engine doesn't pick sides — it shows the data and lets the reader decide.</div>
+        </div>
+        <div class="card">
+          <h3>📡 Primary Sources Only</h3>
+          <div class="desc">No Wikipedia (editable by anyone). No news articles (editorial spin). Library of Congress, National Archives, CIA Factbook, UN resolutions, declassified intel, treaty databases, economic indicators from central banks. The real deal.</div>
+        </div>
+        <div class="card">
+          <h3>🔧 Tool, Not Publication</h3>
+          <div class="desc">Ground Truth is an API and engine first, not a blog or media outlet. Other platforms (World Monitor, newsrooms, researchers) integrate it. We build infrastructure, not content treadmills.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">◎</span> BRAND POSITION</div>
+      <div class="card" style="max-width: 900px;">
+        <div class="desc" style="line-height: 1.8;">
+          <strong style="color: #fff;">Parent brand:</strong> Chaos Monk (developer-facing open source tools)<br>
+          <strong style="color: #fff;">Product:</strong> Ground Truth — Open-Source Geopolitical Context Engine<br>
+          <strong style="color: #fff;">Holding company:</strong> Malleus Prendere LLC (dba MAGE Software)<br>
+          <strong style="color: #fff;">Tone:</strong> Blunt, technical, no-nonsense. Military intel briefing style.<br>
+          <strong style="color: #fff;">Audience:</strong> OSINT researchers, journalists, risk analysts, defense contractors, curious citizens who want real context<br>
+          <strong style="color: #fff;">Credibility anchor:</strong> Built by a 20-year US Army IT/intel veteran. Not a media company playing at intelligence — an actual veteran building tools.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DATA SOURCES TAB ===== -->
+  <div id="sources" class="tab-content">
+
+    <div class="note-box">
+      ⚠️ NO WIKIPEDIA. No secondary media sources. Ground Truth uses only government archives, institutional databases, declassified intelligence, and verified primary sources. Every data point must be traceable to an authoritative origin.
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">🇺🇸</span> US GOVERNMENT SOURCES</div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>Library of Congress <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">Digital collections, historical documents, maps, manuscripts, congressional records, Chronicling America newspapers (1789-1963). Completely open — no API key needed.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-free">NO KEY</span>
+            <span class="tag tag-csv">JSON/YAML</span>
+            <span class="tag tag-historical">HISTORICAL</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>CIA World Factbook <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">260 countries, 200+ fields each — political systems, military capabilities, economic data, demographics, geography. Public domain. Updated weekly via GitHub mirrors.</div>
+          <div class="meta">
+            <span class="tag tag-csv">JSON/CSV/SQL</span>
+            <span class="tag tag-free">PUBLIC DOMAIN</span>
+            <span class="tag tag-bulk">BULK DL</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>National Archives (NARA) <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">30M+ archival records including declassified intelligence, diplomatic cables, presidential records, military records. OCR text + transcriptions available.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-key">API KEY (free)</span>
+            <span class="tag tag-csv">JSON</span>
+            <span class="tag tag-tier">10K req/mo</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>State Dept — FRUS <span class="tier tier-2">TIER 2</span></h3>
+          <div class="desc">Foreign Relations of the United States — 350+ volumes of diplomatic history. Declassified cables, policy decisions, meeting transcripts. The official record of US foreign policy.</div>
+          <div class="meta">
+            <span class="tag tag-csv">HTML/PDF</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-historical">SINCE 1861</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Congressional Research Service <span class="tier tier-2">TIER 2</span></h3>
+          <div class="desc">Non-partisan analysis on every policy topic Congress considers. Deep-dive reports on conflicts, treaties, sanctions, military operations. Congress.gov API access.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-key">API KEY (free)</span>
+            <span class="tag tag-csv">JSON</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>USAID Foreign Assistance <span class="tier tier-2">TIER 2</span></h3>
+          <div class="desc">US foreign aid disbursements by country, agency, sector, year. Follow the money — aid flows often predict or respond to geopolitical shifts.</div>
+          <div class="meta">
+            <span class="tag tag-api">QUERY API</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-csv">CSV</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>USITC Trade Data <span class="tier tier-3">TIER 3</span></h3>
+          <div class="desc">Tariff schedules, bilateral trade flows since 1989. Trade wars start with tariffs — this data shows the economic pressures behind conflicts.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-csv">JSON/CSV</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">🌍</span> INTERNATIONAL INSTITUTIONAL SOURCES</div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>GDELT Project <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">Quarter-billion event records. 300+ event categories, 100+ languages, every country since 1979. Updated every 15 minutes. The most comprehensive real-time event dataset on Earth.</div>
+          <div class="meta">
+            <span class="tag tag-api">BigQuery + API</span>
+            <span class="tag tag-free">FREE TIER</span>
+            <span class="tag tag-realtime">REAL-TIME</span>
+            <span class="tag tag-bulk">BULK DL</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>ACLED <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">1.3M+ conflict events across 200+ countries. Political violence, protests, riots — disaggregated and geolocated. Gold standard for conflict researchers.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-key">FREE ACCT</span>
+            <span class="tag tag-csv">JSON/CSV</span>
+            <span class="tag tag-realtime">NEAR REAL-TIME</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>UCDP Uppsala <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">500+ variables, 18 datasets, 1946-2025. The most academically rigorous conflict dataset. Public API, machine-readable. Used by UN, World Bank, and every serious conflict researcher.</div>
+          <div class="meta">
+            <span class="tag tag-api">PUBLIC API</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-csv">JSON/CSV</span>
+            <span class="tag tag-historical">SINCE 1946</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>SIPRI <span class="tier tier-2">TIER 2</span></h3>
+          <div class="desc">International arms transfers (since 1950), military spending by country, arms industry rankings. Who's selling weapons to whom — critical context for every conflict.</div>
+          <div class="meta">
+            <span class="tag tag-csv">Excel/CSV</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-bulk">BULK DL</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>UN Humanitarian Data Exchange <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">18,110+ datasets across 254 locations. OCHA + UNHCR data. Refugee flows, displacement, humanitarian crises — the human impact layer.</div>
+          <div class="meta">
+            <span class="tag tag-api">API</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-csv">CSV/JSON</span>
+            <span class="tag tag-realtime">UPDATED</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>UN Security Council Resolutions <span class="tier tier-2">TIER 2</span></h3>
+          <div class="desc">2,802 resolutions from 1946-2025. Machine-readable corpus on Zenodo. The official international law backbone — sanctions, peacekeeping mandates, interventions.</div>
+          <div class="meta">
+            <span class="tag tag-csv">STRUCTURED</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-historical">SINCE 1946</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>World Bank Indicators <span class="tier tier-1">TIER 1</span></h3>
+          <div class="desc">16,000+ development indicators across 50+ years. GDP, inflation, trade balance, governance — the economic foundation under every geopolitical event. No API key required.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-free">NO KEY</span>
+            <span class="tag tag-csv">JSON/XML</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>UK National Archives <span class="tier tier-2">TIER 2</span></h3>
+          <div class="desc">32M+ records including declassified MI5/MI6 materials. Discovery API for search. The British perspective on every modern conflict — colonial history, intelligence operations.</div>
+          <div class="meta">
+            <span class="tag tag-api">API</span>
+            <span class="tag tag-key">IP REG</span>
+            <span class="tag tag-csv">XML/JSON</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>NATO Archives <span class="tier tier-3">TIER 3</span></h3>
+          <div class="desc">76 years of archived documents. Alliance decisions, strategic assessments, defense posture changes. Cold War through present.</div>
+          <div class="meta">
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-historical">SINCE 1949</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Transparency International <span class="tier tier-3">TIER 3</span></h3>
+          <div class="desc">Corruption Perceptions Index by country. Corruption is the hidden variable in almost every failed state, revolution, and regime change. CSV/JSON via DataHub.</div>
+          <div class="meta">
+            <span class="tag tag-csv">CSV/JSON</span>
+            <span class="tag tag-free">FREE</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>UN Comtrade <span class="tier tier-3">TIER 3</span></h3>
+          <div class="desc">170+ countries' bilateral trade data. Commodity flows, sanctions impacts, economic dependencies — the economic nervous system of global power.</div>
+          <div class="meta">
+            <span class="tag tag-api">REST API</span>
+            <span class="tag tag-free">FREE TIER</span>
+            <span class="tag tag-csv">JSON/CSV</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>GeoNames <span class="tier tier-3">TIER 3</span></h3>
+          <div class="desc">11M+ placenames, administrative boundaries, elevation. Geographic context layer — where things happen and why location matters.</div>
+          <div class="meta">
+            <span class="tag tag-api">40+ REST APIs</span>
+            <span class="tag tag-free">FREE</span>
+            <span class="tag tag-csv">JSON/XML</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ARCHITECTURE TAB ===== -->
+  <div id="arch" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span class="icon">⚙</span> SYSTEM ARCHITECTURE</div>
+      <div class="arch-diagram"><span class="highlight">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="highlight">│                      GROUND TRUTH ENGINE                         │</span>
+<span class="highlight">└─────────────────────────────────────────────────────────────────┘</span>
+
+<span class="accent">DATA INGESTION LAYER</span>                    <span class="blue">CONTEXT SYNTHESIS</span>                <span class="purple">OUTPUT LAYER</span>
+┌──────────────────────┐      ┌─────────────────────────┐      ┌──────────────────────┐
+│ <span class="accent">TIER 1 — REAL-TIME</span>    │      │                         │      │ <span class="purple">REST API (FastAPI)</span>    │
+│  • GDELT (15min)     │      │   AI Context Engine     │      │  /context/{event}    │
+│  • ACLED (daily)     │─────▶│                         │─────▶│  /timeline/{region}  │
+│  • UCDP (updated)    │      │  Claude API / Local LLM │      │  /briefing/{topic}   │
+│  • World Bank (live) │      │  (synthesis + analysis)  │      │  /compare/{events}   │
+└──────────────────────┘      │                         │      └──────────────────────┘
+                              │  Structured prompts:    │               │
+┌──────────────────────┐      │  • Historical chain     │      ┌──────────────────────┐
+│ <span class="accent">TIER 2 — HISTORICAL</span>  │      │  • Multiple narratives  │      │ <span class="purple">WEB FRONTEND</span>        │
+│  • Library of Congress│─────▶│  • Economic context    │─────▶│  React (minimal)     │
+│  • NARA (declassified)│     │  • Treaty/legal basis   │      │  Globe visualization │
+│  • CIA Factbook      │      │  • Source citations     │      │  Context panels      │
+│  • State Dept FRUS   │      │                         │      └──────────────────────┘
+│  • CRS Reports       │      └─────────────────────────┘               │
+│  • UK Natl Archives  │               │                       ┌──────────────────────┐
+│  • UN SC Resolutions │               │                       │ <span class="purple">INTEGRATIONS</span>        │
+│  • SIPRI Arms Data   │               ▼                       │  • World Monitor     │
+└──────────────────────┘      ┌─────────────────────────┐      │  • Newsroom feeds    │
+                              │  <span class="blue">VERIFICATION LAYER</span>     │      │  • Slack/Discord bots│
+┌──────────────────────┐      │                         │      │  • Embeddable widget │
+│ <span class="accent">TIER 3 — ENRICHMENT</span>  │      │  Antigravity QA:       │      └──────────────────────┘
+│  • UN Comtrade       │      │  • Source validation    │
+│  • USAID Aid Flows   │─────▶│  • Date verification   │
+│  • USITC Trade       │      │  • Bias detection      │
+│  • Transparency Intl │      │  • Fact-check pass     │
+│  • GeoNames          │      │                         │
+│  • NATO Archives     │      └─────────────────────────┘
+└──────────────────────┘
+
+<span class="highlight">STORAGE</span>
+┌──────────────────────────────────────────────────────────────────┐
+│  PostgreSQL (structured events + context cache)                   │
+│  Vector DB (embeddings for semantic search across historical docs)│
+│  Redis (API response caching, rate limiting)                      │
+└──────────────────────────────────────────────────────────────────┘
+
+<span class="highlight">TECH STACK</span>
+  Backend:   Python 3.11+ / FastAPI
+  Database:  PostgreSQL + pgvector (embeddings)
+  Cache:     Redis
+  AI:        Claude API (production) / Ollama local (dev)
+  Frontend:  React 18 + TypeScript + WebGL globe
+  Hosting:   Vercel (frontend) + Railway/Fly.io (API)
+  CI/CD:     GitHub Actions
+  License:   MIT (maximum adoption)</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">⚙</span> HOW A QUERY WORKS</div>
+      <div class="card" style="max-width: 900px;">
+        <div class="desc" style="line-height: 2; font-size: 0.88em; color: #ccc;">
+          <strong style="color: #00ff88;">1. INPUT →</strong> User queries: "Why are there tensions in the South China Sea?"<br>
+          <strong style="color: #00ff88;">2. GDELT SCAN →</strong> Pull all events in SCS region, last 30 days + historical spikes<br>
+          <strong style="color: #00ff88;">3. ACLED/UCDP →</strong> Overlay conflict events, military movements, diplomatic incidents<br>
+          <strong style="color: #00ff88;">4. HISTORICAL PULL →</strong> NARA: declassified cables on SCS. LOC: treaty texts (UNCLOS). CRS: congressional reports on China-Pacific policy<br>
+          <strong style="color: #00ff88;">5. ECONOMIC LAYER →</strong> World Bank: trade dependencies. UN Comtrade: shipping volumes. USITC: tariff data<br>
+          <strong style="color: #00ff88;">6. ARMS CONTEXT →</strong> SIPRI: arms transfers to regional actors. Military spending trends<br>
+          <strong style="color: #00ff88;">7. AI SYNTHESIS →</strong> Claude/local model generates structured timeline with multiple interpretive frameworks<br>
+          <strong style="color: #00ff88;">8. QA PASS →</strong> Antigravity verifies dates, sources, checks for bias<br>
+          <strong style="color: #00ff88;">9. OUTPUT →</strong> JSON (API consumers) + Markdown (human readers) + embeddable HTML
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REVENUE TAB ===== -->
+  <div id="revenue" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span class="icon">💰</span> REVENUE MODEL</div>
+      <table class="rev-table">
+        <thead>
+          <tr>
+            <th>TIER</th>
+            <th>AUDIENCE</th>
+            <th>PRICE</th>
+            <th>WHAT THEY GET</th>
+            <th>TARGET</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color: #00ff88;">FREE / OSS</td>
+            <td>Individual researchers, students, OSINT hobbyists</td>
+            <td>$0</td>
+            <td>100 API calls/day, basic context reports, GitHub repo access</td>
+            <td>Stars + community + brand</td>
+          </tr>
+          <tr>
+            <td style="color: #ffaa00;">PRO</td>
+            <td>Journalists, freelance analysts, small newsrooms</td>
+            <td>$49/mo</td>
+            <td>Unlimited API, real-time alerts, custom region monitoring, webhook integrations</td>
+            <td>$5K-15K MRR</td>
+          </tr>
+          <tr>
+            <td style="color: #ff6b35;">ENTERPRISE</td>
+            <td>Risk consultancies, corporate security, NGOs</td>
+            <td>$199-499/mo</td>
+            <td>Priority API, bulk historical queries, custom report templates, SLA</td>
+            <td>$10K-50K MRR</td>
+          </tr>
+          <tr>
+            <td style="color: #ff5588;">FEDERAL / DEFENSE</td>
+            <td>DoD, DIA, State Dept, defense contractors</td>
+            <td>$500-2K/mo</td>
+            <td>On-prem deployment option, classified source integration hooks, SDVOSB pricing</td>
+            <td>$20K+ MRR (SDVOSB)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">💰</span> SECONDARY REVENUE</div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>GitHub Sponsorships</h3>
+          <div class="desc">Open source projects with 5K+ stars regularly pull $500-5K/mo in GitHub Sponsors. Ground Truth's niche (geopolitical intel) attracts high-value sponsors — defense companies, think tanks, media orgs.</div>
+        </div>
+        <div class="card">
+          <h3>Chaos Monk Halo Effect</h3>
+          <div class="desc">Ground Truth GitHub visibility drives traffic to ALL Chaos Monk products. Every star is a potential customer for the broader product line. Free marketing engine.</div>
+        </div>
+        <div class="card">
+          <h3>Consulting / Custom Deployments</h3>
+          <div class="desc">Organizations that want Ground Truth customized for their specific intelligence requirements. $5K-25K per engagement. Natural upsell from the API tier.</div>
+        </div>
+        <div class="card">
+          <h3>Data Partnerships</h3>
+          <div class="desc">Once the engine proves value, data providers (ACLED, SIPRI) may partner for enhanced access. Think tanks may commission custom analysis tools built on the engine.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box">
+      💡 <strong>BUDGET IMPACT:</strong> MVP costs $0 in direct spending. All data sources are free-tier or public domain. Hosting: Vercel free + Railway free tier. AI: Claude API pay-per-use (minimal during dev). The only cost is Lawrence's time.
+    </div>
+  </div>
+
+  <!-- ===== SPRINT PLAN TAB ===== -->
+  <div id="sprint" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span class="icon">🗓</span> 4-WEEK MVP SPRINT</div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="week">WEEK 1 — FOUNDATION</div>
+          <h4>Data Pipeline + Core Engine</h4>
+          <p>
+            • Set up Ground_Truth repo on GitHub (README, LICENSE MIT, CONTRIBUTING.md, architecture docs)<br>
+            • FastAPI skeleton with health check + OpenAPI docs<br>
+            • GDELT ingestion pipeline (Python, BigQuery free tier)<br>
+            • CIA Factbook JSON loader (GitHub mirror)<br>
+            • World Bank Indicators API integration<br>
+            • PostgreSQL schema: events, countries, context_reports<br>
+            • <strong>Agent: Sonnet/Codex builds pipeline, Opus reviews architecture</strong>
+          </p>
+        </div>
+        <div class="timeline-item">
+          <div class="week">WEEK 2 — HISTORICAL CONTEXT LAYER</div>
+          <h4>Primary Source Integration</h4>
+          <p>
+            • Library of Congress API integration (historical docs, maps)<br>
+            • NARA Catalog API integration (declassified records)<br>
+            • ACLED API integration (conflict events)<br>
+            • UCDP API integration (conflict dataset)<br>
+            • SIPRI data loader (arms transfers, military spend)<br>
+            • AI synthesis prompt engineering (Claude API for context generation)<br>
+            • <strong>Agent: Antigravity starts QA framework for output verification</strong>
+          </p>
+        </div>
+        <div class="timeline-item">
+          <div class="week">WEEK 3 — API + VERIFICATION</div>
+          <h4>Public API + Quality Layer</h4>
+          <p>
+            • REST API endpoints: /context, /timeline, /briefing, /compare<br>
+            • Rate limiting + API key management (free tier)<br>
+            • Antigravity verification pipeline (source validation, bias check, date verify)<br>
+            • Response caching (Redis)<br>
+            • API documentation (auto-generated from FastAPI + custom examples)<br>
+            • Integration tests<br>
+            • <strong>First public API demo — test with real geopolitical query</strong>
+          </p>
+        </div>
+        <div class="timeline-item">
+          <div class="week">WEEK 4 — LAUNCH</div>
+          <h4>Frontend + GitHub Launch + Community</h4>
+          <p>
+            • Minimal React frontend (search bar + context display + source links)<br>
+            • GitHub repo polish (screenshots, demo GIF, badges, star-bait README)<br>
+            • Deploy: Vercel (frontend) + Railway (API)<br>
+            • Post to: Hacker News, Reddit r/OSINT, Reddit r/geopolitics, Twitter/X<br>
+            • World Monitor community outreach (GitHub Discussion post)<br>
+            • Product Hunt launch prep<br>
+            • <strong>Target: 500+ GitHub stars in first week</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">👥</span> AGENT ASSIGNMENTS</div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>Opus (Claude Cowork)</h3>
+          <div class="desc">Architecture decisions, prompt engineering for AI synthesis, API design, quality standards, GitHub repo strategy, community outreach messaging.</div>
+        </div>
+        <div class="card">
+          <h3>Sonnet (Claude Code)</h3>
+          <div class="desc">FastAPI implementation, data pipeline code, React frontend, API endpoint development. Primary code output agent.</div>
+        </div>
+        <div class="card">
+          <h3>Codex</h3>
+          <div class="desc">Database schema, infrastructure (Railway/Fly.io deployment), CI/CD pipeline, monitoring setup.</div>
+        </div>
+        <div class="card">
+          <h3>Antigravity</h3>
+          <div class="desc">QA verification pipeline — every context report gets fact-checked. Source validation, bias detection, date verification. Independent quality gate.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PARTNERSHIP TAB ===== -->
+  <div id="partnership" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span class="icon">🤝</span> WORLD MONITOR PARTNERSHIP STRATEGY</div>
+
+      <div class="partnership-box">
+        <strong>APPROACH:</strong> Don't compete. Complement.<br><br>
+        World Monitor = the RADAR (what's happening now)<br>
+        Ground Truth = the INTELLIGENCE BRIEFING (why it's happening)<br><br>
+        Two different products that are exponentially better together.
+      </div>
+
+      <div class="card" style="max-width: 900px; margin-bottom: 20px;">
+        <h3>Phase 1 — Build First, Then Approach</h3>
+        <div class="desc" style="line-height: 1.8;">
+          Don't reach out to Habib empty-handed. Build the MVP, get it working with real data, generate a few impressive context reports. THEN approach with something concrete to show.<br><br>
+          <strong style="color: #fff;">World Monitor is AGPL-3.0</strong> — we CAN build integrations, but any derivative must also be AGPL. Our engine is MIT-licensed and standalone. Integration = clean API calls, not forking their codebase.
+        </div>
+      </div>
+
+      <div class="card" style="max-width: 900px; margin-bottom: 20px;">
+        <h3>Phase 2 — The Pitch to Habib</h3>
+        <div class="desc" style="line-height: 1.8;">
+          <strong style="color: #00ff88;">Channel:</strong> GitHub Discussions on koala73/worldmonitor, or LinkedIn DM<br><br>
+          <strong style="color: #00ff88;">Message framework:</strong><br>
+          "20-year US Army IT vet. Built an open-source context engine that generates historical intelligence briefings for geopolitical events — the 'why behind the what.' Here's the API, here's a demo showing context for [current event]. Would you be interested in integrating Ground Truth as a context layer in World Monitor? Happy to build the integration on our end."<br><br>
+          <strong style="color: #00ff88;">Why this works:</strong> You're offering value, not asking for anything. You're a veteran (credibility), you built something real (proof), and you're proposing work YOU will do (low friction for him).
+        </div>
+      </div>
+
+      <div class="card" style="max-width: 900px;">
+        <h3>Phase 3 — Integration Options</h3>
+        <div class="desc" style="line-height: 1.8;">
+          <strong style="color: #fff;">Option A:</strong> Ground Truth as a World Monitor data layer — click any event on the globe, get a "Deep Context" panel powered by our API<br><br>
+          <strong style="color: #fff;">Option B:</strong> Standalone but cross-linked — World Monitor links out to Ground Truth for historical context, we link back for real-time events<br><br>
+          <strong style="color: #fff;">Option C:</strong> Ground Truth as a World Monitor plugin/extension (if they build a plugin architecture)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LANDSCAPE TAB ===== -->
+  <div id="landscape" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span class="icon">🔍</span> COMPETITIVE LANDSCAPE</div>
+      <div class="comp-grid">
+        <div class="comp-card">
+          <h4>World Monitor</h4>
+          <div class="what">Real-time global event dashboard. 2M users, 35K GitHub stars. Shows WHAT is happening.</div>
+          <div class="gap">GAP: No historical context or "why" layer. That's us.</div>
+        </div>
+        <div class="comp-card">
+          <h4>Stratfor (RANE)</h4>
+          <div class="what">Premium geopolitical intelligence. $349/yr. Expert human analysts.</div>
+          <div class="gap">GAP: Expensive, closed, editorial voice. We're free, open, data-driven.</div>
+        </div>
+        <div class="comp-card">
+          <h4>Crisis Group</h4>
+          <div class="what">CrisisWatch tracker + in-depth reports. NGO-funded.</div>
+          <div class="gap">GAP: Manual reports, slow updates. We're automated + real-time.</div>
+        </div>
+        <div class="comp-card">
+          <h4>Bellingcat</h4>
+          <div class="what">OSINT investigations. Crowd-sourced verification.</div>
+          <div class="gap">GAP: Investigation-focused, not systematic context. Different lane.</div>
+        </div>
+        <div class="comp-card">
+          <h4>ACLED Dashboard</h4>
+          <div class="what">Conflict data visualization. Academic-grade.</div>
+          <div class="gap">GAP: Raw data, no narrative synthesis or historical chains.</div>
+        </div>
+        <div class="comp-card">
+          <h4>Janes / IHS Markit</h4>
+          <div class="what">Defense intelligence. Enterprise pricing ($10K+/yr).</div>
+          <div class="gap">GAP: Priced out for individuals. We democratize access.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="icon">🔍</span> OUR UNFAIR ADVANTAGES</div>
+      <div class="card-grid">
+        <div class="card">
+          <h3>🎖️ Military Credibility</h3>
+          <div class="desc">20-year Army IT veteran building intelligence tools. Not a media company or academic institution. Real operational experience. This matters enormously in the OSINT and defense community.</div>
+        </div>
+        <div class="card">
+          <h3>🔓 Open Source + Free</h3>
+          <div class="desc">Every competitor is either expensive (Stratfor, Janes) or limited (ACLED dashboard). We're MIT-licensed, free for individuals, and community-driven. Maximum adoption velocity.</div>
+        </div>
+        <div class="card">
+          <h3>🤖 AI-Native Architecture</h3>
+          <div class="desc">Built from day one with AI synthesis. Not bolted on. The engine understands how to connect disparate data sources into coherent narratives — that's the hard problem nobody else has solved at scale.</div>
+        </div>
+        <div class="card">
+          <h3>🏛️ SDVOSB Pipeline</h3>
+          <div class="desc">Once proven, the federal/defense tier sells through SDVOSB channels that no competitor (Stratfor, Bellingcat, Crisis Group) can access. Sole-source contracts for veteran-owned businesses.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

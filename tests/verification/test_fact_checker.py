@@ -21,7 +21,11 @@ def _make_report(**kwargs) -> dict:
         "current_assessment": "The situation remains stable.",
         "confidence_notes": "Based on available primary sources.",
         "perspectives": [
-            {"framework": "Realist", "argument": "Balance of power matters.", "evidence": "Troop data"},
+            {
+                "framework": "Realist",
+                "argument": "Balance of power matters.",
+                "evidence": "Troop data",
+            },
         ],
         "timeline": [
             {"year": 1990, "event": "Cold War ended", "source": "UN"},
@@ -63,9 +67,7 @@ class TestFactCheckerYears:
         assert result.overall_status == "fail"
 
     def test_missing_year_warns(self, checker):
-        report = _make_report(
-            timeline=[{"event": "Something happened", "source": "unknown"}]
-        )
+        report = _make_report(timeline=[{"event": "Something happened", "source": "unknown"}])
         result = checker.check(report)
         assert result.overall_status in ("warn", "fail")
 

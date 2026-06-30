@@ -48,6 +48,7 @@ class TestAuthEnabled:
         monkeypatch.setenv("GT_API_KEY", self.VALID_KEY)
         # Simulate middleware with auth enabled
         from groundtruth.api.auth import AuthMiddleware  # noqa: PLC0415
+
         with monkeypatch.context() as m:
             m.setenv("GT_API_KEY", self.VALID_KEY)
             mw = AuthMiddleware.__new__(AuthMiddleware)
@@ -63,6 +64,7 @@ class TestAuthEnabled:
     def test_wrong_key_logic(self):
         """Verify the middleware's key-check logic directly."""
         from groundtruth.api.auth import AuthMiddleware  # noqa: PLC0415
+
         mw = object.__new__(AuthMiddleware)
         mw._api_key = self.VALID_KEY
         mw._auth_enabled = True
@@ -73,6 +75,7 @@ class TestAuthEnabled:
 
     def test_correct_key_passes_check(self):
         from groundtruth.api.auth import AuthMiddleware  # noqa: PLC0415
+
         mw = object.__new__(AuthMiddleware)
         mw._api_key = self.VALID_KEY
         mw._auth_enabled = True
@@ -84,12 +87,14 @@ class TestRateLimitLogic:
 
     def test_allows_requests_within_limit(self):
         from groundtruth.api.auth import _TokenBucket  # noqa: PLC0415
+
         bucket = _TokenBucket(limit=5)
         for _ in range(5):
             assert bucket.allow() is True
 
     def test_blocks_requests_over_limit(self):
         from groundtruth.api.auth import _TokenBucket  # noqa: PLC0415
+
         bucket = _TokenBucket(limit=3)
         for _ in range(3):
             bucket.allow()
@@ -99,6 +104,7 @@ class TestRateLimitLogic:
         from unittest.mock import MagicMock
 
         from groundtruth.api.auth import AuthMiddleware  # noqa: PLC0415
+
         request = MagicMock()
         request.headers = {"X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
         request.client = None
@@ -109,6 +115,7 @@ class TestRateLimitLogic:
         from unittest.mock import MagicMock
 
         from groundtruth.api.auth import AuthMiddleware  # noqa: PLC0415
+
         request = MagicMock()
         request.headers = {}
         request.client = MagicMock()
