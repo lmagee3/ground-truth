@@ -494,32 +494,109 @@ async def _build_context_response(
         12,
     )
 
-    # Fetch data for primary country
-    await _emit_progress(progress_cb, "factbook", "Fetching CIA Factbook profiles...", 15)
-    try:
-        country_data = await get_country(iso, start_year=start_year, end_year=end_year)
-        country_name = country_data["country"]["name"]
-    except HTTPException:
-        country_data = {
-            "country": {"iso_code": iso, "name": query},
-            "factbook": {},
-            "worldbank": {},
-        }
-    await _emit_progress(progress_cb, "factbook_done", "Factbook data loaded", 25)
+    # =========================================================================
+    # PARALLEL DATA FETCH — all sources fetched concurrently via asyncio.gather
+    # =========================================================================
+    await _emit_progress(progress_cb, "data_fetch", "Fetching all data sources in parallel...", 15)
 
-    # For bilateral/multi-country queries, fetch secondary countries and merge
-    secondary_data: list[dict[str, Any]] = []
     secondary_isos = [c for c in all_countries if c != iso]
-    for sec_iso in secondary_isos[:3]:  # cap at 3 secondary countries
+
+    # --- Define individual fetch coroutines ---
+
+    async def _fetch_primary_country() -> dict[str, Any]:
         try:
-            sec_data = await get_country(sec_iso, start_year=start_year, end_year=end_year)
-            secondary_data.append(sec_data)
+            return await get_country(iso, start_year=start_year, end_year=end_year)
         except HTTPException:
-            pass
+            return {
+                "country": {"iso_code": iso, "name": query},
+                "factbook": {},
+                "worldbank": {},
+            }
 
-    await _emit_progress(progress_cb, "worldbank", "Fetching World Bank indicators...", 30)
+    async def _fetch_secondary_countries() -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        for sec_iso in secondary_isos[:3]:
+            try:
+                sec_data = await get_country(sec_iso, start_year=start_year, end_year=end_year)
+                results.append(sec_data)
+            except HTTPException:
+                pass
+        return results
 
-    # Merge secondary factbook/worldbank into country_data for richer synthesis
+    async def _fetch_gdelt() -> list[dict[str, Any]]:
+        if _is_test_mode():
+            return []
+        try:
+            return await gdelt.fetch_events(query=query, maxrecords=50, country_code=iso)
+        except Exception:  # noqa: BLE001
+            return []
+
+    async def _fetch_acled() -> tuple[list[dict[str, Any]], str | None]:
+        if _is_test_mode():
+            return [], "test mode"
+        if not acled.configured:
+            return [], "missing ACLED credentials"
+        try:
+            events = await acled.fetch_events(
+                country=query,  # use query; country_name not resolved yet
+                start_date=f"{start_year}-01-01",
+                end_date=f"{end_year}-12-31",
+                limit=100,
+                max_pages=2,
+            )
+            return events, None
+        except Exception as exc:  # noqa: BLE001
+            return [], f"unavailable: {exc}"
+
+    async def _fetch_military() -> tuple[dict[str, Any], dict[str, Any] | None]:
+        s_data: dict[str, Any] = sipri.get_country_military_data(
+            iso, start_year=start_year, end_year=end_year
+        )
+        f_data: dict[str, Any] | None = fas.get_country_data(iso)
+
+        for sec_iso in secondary_isos[:3]:
+            sec_sipri = sipri.get_country_military_data(
+                sec_iso, start_year=start_year, end_year=end_year
+            )
+            if sec_sipri.get("military_expenditure"):
+                s_data.setdefault("military_expenditure", []).extend(
+                    sec_sipri["military_expenditure"]
+                )
+            if sec_sipri.get("arms_transfers"):
+                s_data.setdefault("arms_transfers", []).extend(sec_sipri["arms_transfers"])
+
+            sec_fas = fas.get_country_data(sec_iso)
+            if sec_fas and not f_data:
+                f_data = sec_fas
+            elif sec_fas and f_data:
+                if not isinstance(f_data, list):
+                    f_data = [f_data]
+                f_data.append(sec_fas)
+
+        return s_data, f_data
+
+    # --- Fire all fetches in parallel ---
+    (
+        country_data,
+        secondary_data,
+        gdelt_events,
+        acled_result,
+        military_result,
+    ) = await asyncio.gather(
+        _fetch_primary_country(),
+        _fetch_secondary_countries(),
+        _fetch_gdelt(),
+        _fetch_acled(),
+        _fetch_military(),
+    )
+
+    acled_events, acled_skip_reason = acled_result
+    sipri_data, fas_data = military_result
+    country_name = country_data["country"].get("name", query)
+
+    await _emit_progress(progress_cb, "data_fetch_done", "All data sources loaded", 65)
+
+    # --- Merge secondary country data ---
     if secondary_data:
         merged_factbook = dict(country_data.get("factbook", {}))
         merged_worldbank = dict(country_data.get("worldbank", {}))
@@ -538,20 +615,18 @@ async def _build_context_response(
 
         country_data["factbook"] = merged_factbook
         country_data["worldbank"] = merged_worldbank
-        # Add secondary country names for the synthesis prompt
         country_data["secondary_countries"] = [
             s.get("country", {}).get("name", "Unknown") for s in secondary_data
         ]
 
-    # Track total records across all countries for source status
+    # --- Build sources_available from parallel results ---
     wb_records = sum(len(v) for v in country_data.get("worldbank", {}).values())
     fb_records = len(country_data.get("factbook", {}))
-    await _emit_progress(
-        progress_cb,
-        "worldbank_done",
-        f"Loaded {wb_records} economic indicators across {max(1, len(all_countries))} countries",
-        40,
+
+    sipri_records = len(sipri_data.get("military_expenditure", [])) + len(
+        sipri_data.get("arms_transfers", [])
     )
+    fas_count = (len(fas_data) if isinstance(fas_data, list) else 1) if fas_data else 0
 
     sources_available: dict[str, dict[str, Any]] = {
         "worldbank": {
@@ -564,135 +639,33 @@ async def _build_context_response(
             "records": fb_records,
             "reason": "no factbook data" if not fb_records else None,
         },
-        "gdelt": {"status": "skipped", "records": 0, "reason": "not requested"},
-        "acled": {"status": "skipped", "records": 0, "reason": "not requested"},
-        "sipri": {"status": "skipped", "records": 0, "reason": "no local data"},
-        "fas": {"status": "skipped", "records": 0, "reason": "no local data"},
+        "gdelt": {
+            "status": "used" if gdelt_events else "skipped",
+            "records": len(gdelt_events),
+            "reason": ("test mode" if _is_test_mode() else ("no matching events" if not gdelt_events else None)),
+        },
+        "acled": {
+            "status": "used" if acled_events else "skipped",
+            "records": len(acled_events),
+            "reason": acled_skip_reason or ("no matching events" if not acled_events else None),
+        },
+        "sipri": {
+            "status": "used" if sipri_records else "skipped",
+            "records": sipri_records,
+            "reason": "no local data" if not sipri_records else None,
+        },
+        "fas": {
+            "status": "used" if fas_data else "skipped",
+            "records": fas_count,
+            "reason": "no local data" if not fas_data else None,
+        },
     }
-
-    gdelt_events: list[dict[str, Any]] = []
-    acled_events: list[dict[str, Any]] = []
-
-    if not _is_test_mode():
-        await _emit_progress(progress_cb, "gdelt", "Scanning GDELT event database...", 45)
-        try:
-            gdelt_events = await gdelt.fetch_events(query=query, maxrecords=50, country_code=iso)
-            sources_available["gdelt"] = {
-                "status": "used" if gdelt_events else "skipped",
-                "records": len(gdelt_events),
-                "reason": "no matching events" if not gdelt_events else None,
-            }
-        except Exception as exc:  # noqa: BLE001
-            sources_available["gdelt"] = {
-                "status": "skipped",
-                "records": 0,
-                "reason": f"unavailable: {exc}",
-            }
-        await _emit_progress(
-            progress_cb,
-            "gdelt_done",
-            f"Found {len(gdelt_events)} GDELT events in the last 30 days",
-            55,
-        )
-
-        await _emit_progress(progress_cb, "acled", "Querying ACLED conflict data...", 60)
-        try:
-            acled_events = await acled.fetch_events(
-                country=country_name,
-                start_date=f"{start_year}-01-01",
-                end_date=f"{end_year}-12-31",
-                limit=100,
-                max_pages=2,
-            )
-            reason = None
-            status = "used"
-            if not acled.configured:
-                status = "skipped"
-                reason = "missing ACLED credentials"
-            elif not acled_events:
-                status = "skipped"
-                reason = "no matching events"
-
-            sources_available["acled"] = {
-                "status": status,
-                "records": len(acled_events),
-                "reason": reason,
-            }
-        except Exception as exc:  # noqa: BLE001
-            sources_available["acled"] = {
-                "status": "skipped",
-                "records": 0,
-                "reason": f"unavailable: {exc}",
-            }
-        await _emit_progress(
-            progress_cb,
-            "acled_done",
-            f"Loaded {len(acled_events)} ACLED conflict records",
-            65,
-        )
-    else:
-        sources_available["gdelt"] = {
-            "status": "skipped",
-            "records": 0,
-            "reason": "test mode",
-        }
-        sources_available["acled"] = {
-            "status": "skipped",
-            "records": 0,
-            "reason": "test mode",
-        }
-        await _emit_progress(progress_cb, "gdelt_done", "GDELT skipped in test mode", 55)
-        await _emit_progress(progress_cb, "acled_done", "ACLED skipped in test mode", 65)
-
-    # Fetch SIPRI/FAS for ALL countries, merge results
-    await _emit_progress(progress_cb, "military", "Loading SIPRI/FAS military data...", 70)
-    sipri_data: dict[str, Any] = sipri.get_country_military_data(
-        iso, start_year=start_year, end_year=end_year
-    )
-    fas_data: dict[str, Any] | None = fas.get_country_data(iso)
-
-    for sec_iso in secondary_isos[:3]:
-        sec_sipri = sipri.get_country_military_data(
-            sec_iso, start_year=start_year, end_year=end_year
-        )
-        if sec_sipri.get("military_expenditure"):
-            sipri_data.setdefault("military_expenditure", []).extend(
-                sec_sipri["military_expenditure"]
-            )
-        if sec_sipri.get("arms_transfers"):
-            sipri_data.setdefault("arms_transfers", []).extend(sec_sipri["arms_transfers"])
-
-        sec_fas = fas.get_country_data(sec_iso)
-        if sec_fas and not fas_data:
-            fas_data = sec_fas
-        elif sec_fas and fas_data:
-            # Merge: store as list of country nuclear profiles
-            if not isinstance(fas_data, list):
-                fas_data = [fas_data]
-            fas_data.append(sec_fas)
-
-    sipri_records = len(sipri_data.get("military_expenditure", [])) + len(
-        sipri_data.get("arms_transfers", [])
-    )
-    if sipri_records:
-        sources_available["sipri"] = {"status": "used", "records": sipri_records, "reason": None}
-
-    if fas_data:
-        fas_count = len(fas_data) if isinstance(fas_data, list) else 1
-        sources_available["fas"] = {"status": "used", "records": fas_count, "reason": None}
-    else:
-        fas_count = 0
 
     await _emit_progress(
         progress_cb,
-        "military_done",
-        (
-            "SIPRI: "
-            f"{len(sipri_data.get('military_expenditure', []))} military expenditure records, "
-            f"{len(sipri_data.get('arms_transfers', []))} arms transfers; "
-            f"FAS profiles: {fas_count}"
-        ),
-        75,
+        "data_summary",
+        f"Sources: {wb_records} economic, {len(gdelt_events)} GDELT, {len(acled_events)} ACLED, {sipri_records} military",
+        70,
     )
 
     military_data = {
