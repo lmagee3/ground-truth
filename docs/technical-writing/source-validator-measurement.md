@@ -114,9 +114,3 @@ python3 -m venv .venv && . .venv/bin/activate
 python -m pip install httpx pydantic pydantic-settings sqlalchemy structlog python-dotenv
 PYTHONPATH=. python scripts/measure_source_validator.py
 ```
-
-## Authorship and review
-
-Ground Truth and this report were developed with AI assistance. Lawrence Magee reviewed the findings
-and approved this report for publication. The linked script, test cases, and pull request show the
-method and proposed fix so readers can inspect the work directly.
