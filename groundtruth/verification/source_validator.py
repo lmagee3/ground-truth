@@ -450,7 +450,7 @@ class SourceValidator:
         """Extract the netloc/domain from a URL string."""
         try:
             parsed = urlparse(url)
-            return parsed.netloc.lower().lstrip("www.")
+            return parsed.netloc.lower().removeprefix("www.")
         except Exception:
             return ""
 

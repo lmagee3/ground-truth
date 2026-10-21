@@ -98,6 +98,18 @@ class TestCheckDomainApproved:
         approved, note = validator.check_domain_approved("not-a-url")
         assert approved is False
 
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://www.whitehouse.gov/briefing-room/", "whitehouse.gov"),
+            ("https://www.worldbank.org/", "worldbank.org"),
+            ("https://www.who.int/", "who.int"),
+            ("https://www3.weforum.org/", "www3.weforum.org"),
+        ],
+    )
+    def test_extract_domain_preserves_leading_w(self, url, expected):
+        assert SourceValidator._extract_domain(url) == expected
+
 
 # ---------------------------------------------------------------------------
 # Date freshness checks (synchronous — no I/O)
